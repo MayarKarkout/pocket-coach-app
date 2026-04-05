@@ -1,0 +1,6 @@
+services:
+  web:
+    environment:
+      WATCHPACK_POLLING: null
+      NEXT_TURBOPACK: null
+    command: sh -c "npm install && npm run build && npm start"
