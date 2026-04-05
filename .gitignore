@@ -1,0 +1,38 @@
+# Node
+node_modules/
+.pnpm-store/
+.next/
+dist/
+build/
+out/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Docker
+postgres_data/
+
+# Claude Code local config
+.claude/
+
+# IDE
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*

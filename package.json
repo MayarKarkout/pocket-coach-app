@@ -1,0 +1,9 @@
+{
+  "name": "pocket-coach",
+  "private": true,
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
