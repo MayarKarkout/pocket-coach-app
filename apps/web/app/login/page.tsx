@@ -20,7 +20,7 @@ export default function LoginPage() {
       body: JSON.stringify({ email, password }),
     });
     if (res.ok) {
-      router.push("/");
+      router.push("/today");
     } else {
       setError(true);
     }
