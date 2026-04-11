@@ -153,6 +153,11 @@
 | M12 Today health stats | Quick glance: steps + sleep; tap to open full panel with all 7 metrics (sleep, HR, HRV, steps, SpO2, stress, calories) |
 | M12 Insights health | New Insights section with sleep, HR, steps charts |
 | M12 briefing context | Health snapshot data (sleep, HR, steps etc.) fed into LLM briefing context |
+| M12 Android companion app | Small Android app reads Gadgetbridge Content Provider and POSTs to PocketCoach API; minimal settings screen (URL + credentials); hourly WorkManager job; no API token — app calls /auth/login and stores session cookie |
+| M12 Gadgetbridge setup | CMF Watch Pro 3 paired directly with Gadgetbridge (no K1 key needed in current version); connects automatically |
+| M12 data pipeline | Gadgetbridge → Android companion app → PocketCoach API (via Cloudflare tunnel); historical data not imported (going forward only) |
+| M12 acceptance test | End-to-end with real watch data after Android app is built; all UI work (Today health, triage, Insights, briefing) tested together |
+| Cloudflare stable tunnel | Deferred — current trycloudflare.com URL changes on restart; needs domain + named tunnel (open decision) |
 
 ## Recent Decisions (M11 Planning)
 | Decision | Detail |
@@ -214,6 +219,9 @@
 | TASK-036 | [tasks/TASK-036-today-health-triage.md](tasks/TASK-036-today-health-triage.md) | ✅ Done |
 | TASK-037 | [tasks/TASK-037-insights-health.md](tasks/TASK-037-insights-health.md) | ✅ Done |
 | TASK-038 | [tasks/TASK-038-briefing-health-context.md](tasks/TASK-038-briefing-health-context.md) | ✅ Done |
+| TASK-039 | [tasks/TASK-039-android-companion-app.md](tasks/TASK-039-android-companion-app.md) | ⬜ Todo |
+| TASK-040 | [tasks/TASK-040-cloudflare-stable-tunnel.md](tasks/TASK-040-cloudflare-stable-tunnel.md) | ⬜ Todo |
+| TASK-041 | [tasks/TASK-041-m12-acceptance-test.md](tasks/TASK-041-m12-acceptance-test.md) | ⬜ Todo |
 
 ---
 *Last updated: 2026-04-11 — Hosting unblocked: app live on laptop + Cloudflare Tunnel. Three bugs fixed: auth middleware (proxy.ts) was blocking login API calls; Next.js rewrite wasn't forwarding Set-Cookie (replaced with Route Handler); password hash corruption in DB. M12 acceptance testing can now proceed.*
