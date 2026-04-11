@@ -17,7 +17,7 @@
 | M9 | LLM Foundation | ✅ Done |
 | M10 | Data Summarization | ✅ Done |
 | M11 | Gadgetbridge Connector | ✅ Done |
-| M12 | Health Data UI + LLM Integration | 🔄 In progress (impl done, pending acceptance test) |
+| M12 | Health Data UI + LLM Integration | 🔄 In progress (Android app built, pending HC permissions + end-to-end test) |
 | M13 | LLM Tool Use (deferred) | ⬜ Not started |
 
 ## What's Done (M1–M3)
@@ -224,4 +224,4 @@
 | TASK-041 | [tasks/TASK-041-m12-acceptance-test.md](tasks/TASK-041-m12-acceptance-test.md) | ⬜ Todo |
 
 ---
-*Last updated: 2026-04-11 — Hosting unblocked: app live on laptop + Cloudflare Tunnel. Three bugs fixed: auth middleware (proxy.ts) was blocking login API calls; Next.js rewrite wasn't forwarding Set-Cookie (replaced with Route Handler); password hash corruption in DB. M12 acceptance testing can now proceed.*
+*Last updated: 2026-04-12 — TASK-039 Android companion app built. Switched from Gadgetbridge ContentProvider (doesn't exist) to Health Connect API. App installs and runs; daily snapshot partially working. Blocked on Health Connect Exercise permission not being granted via auto-request — added explicit "Grant Permissions" button. Next: pull on Windows, rebuild, grant permissions, verify end-to-end data flow.*
