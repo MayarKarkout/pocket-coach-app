@@ -182,7 +182,7 @@
 | Summary schema — meals | `log_count`, `avg_daily_calories`, `days_with_logs` |
 
 ## Open Decisions
-- **Hosting / access method not decided** — need to choose how to make the app accessible from Miro's phone for real-device testing. Options include Cloudflare Tunnel (originally in the stack plan), ngrok, VPN, or deploying to a VPS. No decision made yet — needs its own planning conversation before M12 acceptance testing can happen.
+- **Persistent Cloudflare tunnel** — currently using a temporary trycloudflare.com URL (changes on restart). Needs a domain (~$10/yr) + named tunnel + cloudflared as systemd service for stability. See `docs/cloudflare-tunnel.md`.
 
 ## Blockers
 - None currently
@@ -216,4 +216,4 @@
 | TASK-038 | [tasks/TASK-038-briefing-health-context.md](tasks/TASK-038-briefing-health-context.md) | ✅ Done |
 
 ---
-*Last updated: 2026-03-29 — M12 implementation complete (TASK-036/037/038); blocked on hosting decision before real-device acceptance testing can begin*
+*Last updated: 2026-04-11 — Hosting unblocked: app live on laptop + Cloudflare Tunnel. Three bugs fixed: auth middleware (proxy.ts) was blocking login API calls; Next.js rewrite wasn't forwarding Set-Cookie (replaced with Route Handler); password hash corruption in DB. M12 acceptance testing can now proceed.*
