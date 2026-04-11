@@ -12,29 +12,20 @@ private const val TAG = "SyncWorker"
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result {
         if (!Prefs.isConfigured(applicationContext)) {
             Log.w(TAG, "Not configured, skipping sync")
-            return@withContext Result.success()
+            return Result.success()
         }
 
         val api = ApiClient(applicationContext)
-        val gbReader = GadgetbridgeReader(applicationContext.contentResolver)
-
-        val deviceMac = gbReader.getDeviceMac()
-        if (deviceMac == null) {
-            Log.w(TAG, "No Gadgetbridge device found — check 'Allow 3rd party access' in Gadgetbridge settings")
-            return@withContext Result.failure()
-        }
-
-        Log.d(TAG, "Syncing device: $deviceMac")
+        val reader = HealthConnectReader(applicationContext)
         var anyFailure = false
 
         // --- Daily health snapshot (today) ---
         try {
-            val today = LocalDate.now()
-            val snapshot = gbReader.readDailySnapshot(today, deviceMac)
-            val response = api.post("/gadgetbridge/daily", snapshot)
+            val snapshot = reader.readDailySnapshot(LocalDate.now())
+            val response = withContext(Dispatchers.IO) { api.post("/gadgetbridge/daily", snapshot) }
             if (response != null) {
                 Log.d(TAG, "Daily snapshot posted: $response")
             } else {
@@ -48,10 +39,10 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
         // --- Recent workouts (last 24h) ---
         try {
-            val workouts = gbReader.readRecentWorkouts(deviceMac)
+            val workouts = reader.readRecentWorkouts()
             Log.d(TAG, "Found ${workouts.size} recent workout(s)")
             for (workout in workouts) {
-                val response = api.post("/gadgetbridge/workout", workout)
+                val response = withContext(Dispatchers.IO) { api.post("/gadgetbridge/workout", workout) }
                 if (response != null) {
                     Log.d(TAG, "Workout posted: $response")
                 } else {
@@ -64,6 +55,6 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             anyFailure = true
         }
 
-        if (anyFailure) Result.retry() else Result.success()
+        return if (anyFailure) Result.retry() else Result.success()
     }
 }

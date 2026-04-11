@@ -3,6 +3,10 @@ package com.pocketcoach.companion
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.*
 import androidx.lifecycle.lifecycleScope
 import androidx.work.*
 import com.pocketcoach.companion.databinding.ActivityMainBinding
@@ -11,16 +15,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
+val HEALTH_PERMISSIONS = setOf(
+    HealthPermission.getReadPermission(StepsRecord::class),
+    HealthPermission.getReadPermission(SleepSessionRecord::class),
+    HealthPermission.getReadPermission(HeartRateRecord::class),
+    HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+    HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+    HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+    HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+    HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+)
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
+    private val requestPermissions = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        val missing = HEALTH_PERMISSIONS - granted
+        if (missing.isEmpty()) {
+            setStatus("Health Connect permissions granted.")
+        } else {
+            setStatus("Missing ${missing.size} Health Connect permission(s). Some data may not sync.")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Populate fields from saved prefs
         val prefs = Prefs.get(this)
         binding.editUrl.setText(prefs.getString(Prefs.KEY_URL, ""))
         binding.editEmail.setText(prefs.getString(Prefs.KEY_EMAIL, ""))
@@ -28,6 +53,25 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnSave.setOnClickListener { saveSettings() }
         binding.btnSyncNow.setOnClickListener { syncNow() }
+
+        checkHealthConnectPermissions()
+    }
+
+    private fun checkHealthConnectPermissions() {
+        val status = HealthConnectClient.getSdkStatus(this)
+        if (status != HealthConnectClient.SDK_AVAILABLE) {
+            setStatus("Health Connect not available on this device.")
+            return
+        }
+
+        lifecycleScope.launch {
+            val client = HealthConnectClient.getOrCreate(this@MainActivity)
+            val granted = client.permissionController.getGrantedPermissions()
+            val missing = HEALTH_PERMISSIONS - granted
+            if (missing.isNotEmpty()) {
+                requestPermissions.launch(HEALTH_PERMISSIONS)
+            }
+        }
     }
 
     private fun saveSettings() {
@@ -44,7 +88,7 @@ class MainActivity : AppCompatActivity() {
             .putString(Prefs.KEY_URL, url)
             .putString(Prefs.KEY_EMAIL, email)
             .putString(Prefs.KEY_PASSWORD, password)
-            .remove(Prefs.KEY_SESSION_COOKIE)  // clear cached cookie on credential change
+            .remove(Prefs.KEY_SESSION_COOKIE)
             .apply()
 
         scheduleHourlySync()
@@ -61,37 +105,29 @@ class MainActivity : AppCompatActivity() {
         binding.btnSyncNow.isEnabled = false
 
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runSync()
-            }
+            val result = runSync()
             binding.btnSyncNow.isEnabled = true
             setStatus(result)
         }
     }
 
-    private fun runSync(): String {
+    private suspend fun runSync(): String {
         val api = ApiClient(this)
-        val gbReader = GadgetbridgeReader(contentResolver)
-
-        val deviceMac = gbReader.getDeviceMac()
-            ?: return "No Gadgetbridge device found.\nEnable 'Allow 3rd party access' in Gadgetbridge → Settings."
-
+        val reader = HealthConnectReader(this)
         var ok = 0
         var failed = 0
 
-        // Daily snapshot
         try {
-            val snapshot = gbReader.readDailySnapshot(java.time.LocalDate.now(), deviceMac)
-            if (api.post("/gadgetbridge/daily", snapshot) != null) ok++ else failed++
+            val snapshot = reader.readDailySnapshot(java.time.LocalDate.now())
+            if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/daily", snapshot) } != null) ok++ else failed++
         } catch (e: Exception) {
             failed++
         }
 
-        // Recent workouts
         try {
-            val workouts = gbReader.readRecentWorkouts(deviceMac)
+            val workouts = reader.readRecentWorkouts()
             for (w in workouts) {
-                if (api.post("/gadgetbridge/workout", w) != null) ok++ else failed++
+                if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/workout", w) } != null) ok++ else failed++
             }
         } catch (e: Exception) {
             failed++

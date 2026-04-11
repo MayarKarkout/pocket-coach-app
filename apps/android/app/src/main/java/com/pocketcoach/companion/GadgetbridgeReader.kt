@@ -1,248 +1,210 @@
 package com.pocketcoach.companion
 
-import android.content.ContentResolver
-import android.net.Uri
+import android.content.Context
 import android.util.Log
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.*
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-private const val TAG = "GBReader"
+private const val TAG = "HealthReader"
 
-/**
- * Reads health data from the Gadgetbridge Content Provider.
- *
- * Prerequisites:
- *   1. Gadgetbridge installed with "Allow 3rd party access" enabled in its Settings.
- *   2. This app's manifest declares READ_CONTENT_PROVIDER permission.
- *
- * URI format (Gadgetbridge ≥ 0.76):
- *   content://nodomain.freeyourgadget.gadgetbridge.contentprovider/...
- *
- * If queries return null/empty, check:
- *   - Gadgetbridge 3rd-party access toggle
- *   - Device MAC address (use adb or Gadgetbridge debug info)
- *   - Column names (may vary by Gadgetbridge version — inspect cursor.columnNames)
- */
-class GadgetbridgeReader(private val resolver: ContentResolver) {
+class HealthConnectReader(private val context: Context) {
 
-    companion object {
-        private const val AUTHORITY = "nodomain.freeyourgadget.gadgetbridge.contentprovider"
-
-        // RAW_KIND values for sleep stages (Miband/common; CMF Watch Pro 3 may differ)
-        private const val KIND_SLEEP_LIGHT = 1      // light sleep
-        private const val KIND_SLEEP_DEEP = 5       // deep sleep
-        private const val KIND_SLEEP_REM = 8        // REM sleep
-        private const val KIND_SLEEP_AWAKE = 6      // awake during sleep window
-
-        // Sentinel values meaning "no HR reading"
-        private const val HR_NONE_1 = 0
-        private const val HR_NONE_2 = 255
-    }
-
-    // -------------------------------------------------------------------------
-    // Device discovery
-    // -------------------------------------------------------------------------
-
-    /**
-     * Returns the MAC address of the first paired Gadgetbridge device.
-     * URI: content://AUTHORITY/devicelist
-     * Columns include: DEVICE_MAC, DEVICE_NAME, DEVICE_TYPE
-     */
-    fun getDeviceMac(): String? {
-        val uri = Uri.parse("content://$AUTHORITY/devicelist")
-        return try {
-            resolver.query(uri, null, null, null, null)?.use { cursor ->
-                if (!cursor.moveToFirst()) return null
-                val macIdx = cursor.getColumnIndex("DEVICE_MAC")
-                    .takeIf { it >= 0 } ?: run {
-                    // Log available columns to help debug
-                    Log.w(TAG, "DEVICE_MAC column not found. Columns: ${cursor.columnNames.joinToString()}")
-                    return null
-                }
-                cursor.getString(macIdx)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "getDeviceMac failed", e)
-            null
-        }
-    }
+    private val client by lazy { HealthConnectClient.getOrCreate(context) }
 
     // -------------------------------------------------------------------------
     // Daily health snapshot
     // -------------------------------------------------------------------------
 
-    /**
-     * Reads today's health data from Gadgetbridge and returns a JSONObject
-     * matching the PocketCoach /gadgetbridge/daily schema.
-     *
-     * URI: content://AUTHORITY/activity/{deviceMac}/{startTs}/{endTs}
-     * (timestamps in Unix seconds)
-     *
-     * Activity sample columns (Miband-style; CMF Watch may differ):
-     *   TIMESTAMP, RAW_INTENSITY, STEPS, RAW_KIND, HEART_RATE
-     */
-    fun readDailySnapshot(date: LocalDate, deviceMac: String): JSONObject {
+    suspend fun readDailySnapshot(date: LocalDate): JSONObject {
         val zone = ZoneId.systemDefault()
-        val startTs = date.atStartOfDay(zone).toEpochSecond()
-        val endTs = date.plusDays(1).atStartOfDay(zone).toEpochSecond()
+        val start = date.atStartOfDay(zone).toInstant()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val range = TimeRangeFilter.between(start, end)
 
-        val uri = Uri.parse("content://$AUTHORITY/activity/$deviceMac/$startTs/$endTs")
+        val steps = readSteps(range)
+        val calories = readCalories(range)
+        val restingHr = readRestingHr(range)
+        val hrv = readHrv(range)
+        val spo2 = readSpo2(range)
+        val sleep = readSleep(date, zone)
 
-        var totalSteps = 0
-        var totalCalories = 0
-        var hasCalories = false
-        val hrValues = mutableListOf<Int>()
-        val sleepKindMinutes = mutableMapOf<Int, Int>()  // kind → minute count
+        return JSONObject().apply {
+            put("date", date.toString())
+            put("steps", steps ?: JSONObject.NULL)
+            put("calories_active", calories ?: JSONObject.NULL)
+            put("resting_hr", restingHr ?: JSONObject.NULL)
+            put("hrv", hrv ?: JSONObject.NULL)
+            put("spo2", spo2 ?: JSONObject.NULL)
+            put("stress_avg", JSONObject.NULL)  // not available in Health Connect
+            put("sleep", sleep ?: JSONObject.NULL)
+        }
+    }
 
-        try {
-            resolver.query(uri, null, null, null, null)?.use { cursor ->
-                Log.d(TAG, "Activity columns: ${cursor.columnNames.joinToString()}")
+    private suspend fun readSteps(range: TimeRangeFilter): Int? {
+        return try {
+            val records = client.readRecords(ReadRecordsRequest(StepsRecord::class, range)).records
+            val total = records.sumOf { it.count }
+            if (total > 0) total.toInt() else null
+        } catch (e: Exception) {
+            Log.w(TAG, "readSteps failed", e)
+            null
+        }
+    }
 
-                val iSteps = cursor.getColumnIndex("STEPS")
-                val iKind = cursor.getColumnIndex("RAW_KIND")
-                val iHr = cursor.getColumnIndex("HEART_RATE")
-                // "CALORIES" may not exist on all devices
-                val iCal = cursor.getColumnIndex("CALORIES").takeIf { it >= 0 }
+    private suspend fun readCalories(range: TimeRangeFilter): Int? {
+        return try {
+            val records = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, range)).records
+            val total = records.sumOf { it.energy.inKilocalories }
+            if (total > 0) total.toInt() else null
+        } catch (e: Exception) {
+            Log.w(TAG, "readCalories failed", e)
+            null
+        }
+    }
 
-                while (cursor.moveToNext()) {
-                    val steps = if (iSteps >= 0) cursor.getInt(iSteps) else 0
-                    val kind = if (iKind >= 0) cursor.getInt(iKind) else -1
-                    val hr = if (iHr >= 0) cursor.getInt(iHr) else 0
-                    val cal = iCal?.let { cursor.getInt(it) } ?: 0
+    private suspend fun readRestingHr(range: TimeRangeFilter): Int? {
+        return try {
+            // Prefer explicit RestingHeartRateRecord if Gadgetbridge writes it
+            val resting = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range)).records
+            if (resting.isNotEmpty()) {
+                return resting.last().beatsPerMinute.toInt()
+            }
+            // Fall back to minimum HR sample of the day
+            val hrRecords = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records
+            hrRecords.flatMap { it.samples }.map { it.beatsPerMinute }.minOrNull()?.toInt()
+        } catch (e: Exception) {
+            Log.w(TAG, "readRestingHr failed", e)
+            null
+        }
+    }
 
-                    totalSteps += steps
-                    if (iCal != null && cal > 0) {
-                        totalCalories += cal
-                        hasCalories = true
-                    }
-                    if (hr != HR_NONE_1 && hr != HR_NONE_2 && hr > 0) {
-                        hrValues += hr
-                    }
-                    if (kind in listOf(KIND_SLEEP_LIGHT, KIND_SLEEP_DEEP, KIND_SLEEP_REM, KIND_SLEEP_AWAKE)) {
-                        // Each row in Gadgetbridge activity represents a 1-minute bucket
-                        sleepKindMinutes[kind] = (sleepKindMinutes[kind] ?: 0) + 1
-                    }
+    private suspend fun readHrv(range: TimeRangeFilter): Double? {
+        return try {
+            val records = client.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, range)).records
+            if (records.isEmpty()) null
+            else records.map { it.heartRateVariabilityMillis }.average()
+        } catch (e: Exception) {
+            Log.w(TAG, "readHrv failed", e)
+            null
+        }
+    }
+
+    private suspend fun readSpo2(range: TimeRangeFilter): Double? {
+        return try {
+            val records = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, range)).records
+            if (records.isEmpty()) null
+            else records.map { it.percentage.value }.average()
+        } catch (e: Exception) {
+            Log.w(TAG, "readSpo2 failed", e)
+            null
+        }
+    }
+
+    private suspend fun readSleep(date: LocalDate, zone: ZoneId): JSONObject? {
+        return try {
+            // Sleep for "date" is last night — query sessions that END on this date (between 3am prev day and noon today)
+            val windowStart = date.minusDays(1).atTime(18, 0).atZone(zone).toInstant()
+            val windowEnd = date.atTime(14, 0).atZone(zone).toInstant()
+            val range = TimeRangeFilter.between(windowStart, windowEnd)
+
+            val sessions = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records
+            if (sessions.isEmpty()) return null
+
+            // Use the longest session
+            val session = sessions.maxByOrNull {
+                it.endTime.epochSecond - it.startTime.epochSecond
+            } ?: return null
+
+            val totalMinutes = ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
+
+            var deepMinutes = 0
+            var lightMinutes = 0
+            var remMinutes = 0
+            var awakeMinutes = 0
+
+            for (stage in session.stages) {
+                val mins = ((stage.endTime.epochSecond - stage.startTime.epochSecond) / 60).toInt()
+                when (stage.stage) {
+                    SleepSessionRecord.STAGE_TYPE_DEEP -> deepMinutes += mins
+                    SleepSessionRecord.STAGE_TYPE_LIGHT -> lightMinutes += mins
+                    SleepSessionRecord.STAGE_TYPE_REM -> remMinutes += mins
+                    SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED -> awakeMinutes += mins
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "readDailySnapshot failed", e)
-        }
 
-        val lightMinutes = sleepKindMinutes[KIND_SLEEP_LIGHT] ?: 0
-        val deepMinutes = sleepKindMinutes[KIND_SLEEP_DEEP] ?: 0
-        val remMinutes = sleepKindMinutes[KIND_SLEEP_REM] ?: 0
-        val awakeMinutes = sleepKindMinutes[KIND_SLEEP_AWAKE] ?: 0
-        val totalSleepMinutes = lightMinutes + deepMinutes + remMinutes
-
-        val sleep = if (totalSleepMinutes > 0) {
             JSONObject().apply {
-                put("duration_minutes", totalSleepMinutes)
+                put("duration_minutes", totalMinutes)
                 put("deep_minutes", deepMinutes)
                 put("light_minutes", lightMinutes)
                 put("rem_minutes", remMinutes)
                 put("awake_minutes", awakeMinutes)
             }
-        } else null
-
-        // Resting HR approximation: minimum valid reading of the day
-        val restingHr = hrValues.minOrNull()
-
-        return JSONObject().apply {
-            put("date", date.toString())
-            put("steps", if (totalSteps > 0) totalSteps else JSONObject.NULL)
-            put("calories_active", if (hasCalories && totalCalories > 0) totalCalories else JSONObject.NULL)
-            put("resting_hr", restingHr ?: JSONObject.NULL)
-            put("hrv", JSONObject.NULL)        // TODO: query HRV if available
-            put("spo2", JSONObject.NULL)       // TODO: query SpO2 if available
-            put("stress_avg", JSONObject.NULL) // TODO: query stress if available
-            put("sleep", sleep ?: JSONObject.NULL)
+        } catch (e: Exception) {
+            Log.w(TAG, "readSleep failed", e)
+            null
         }
     }
 
     // -------------------------------------------------------------------------
-    // Recent workouts
+    // Recent workouts (last 24h)
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns workout sessions recorded by Gadgetbridge in the last 24 hours.
-     *
-     * URI: content://AUTHORITY/workout_samples/{deviceMac}/{startTs}/{endTs}
-     *
-     * Expected columns: ID (or TIMESTAMP as dedup key), WORKOUT_TYPE (or ACTIVITY_TYPE),
-     * START_TIME, END_TIME, DURATION, AVG_HEART_RATE, MAX_HEART_RATE, CALORIES, STEPS
-     *
-     * NOTE: Gadgetbridge workout URI/columns vary by version and device.
-     * Check cursor.columnNames in logcat and adjust column names here if needed.
-     */
-    fun readRecentWorkouts(deviceMac: String): List<JSONObject> {
-        val nowTs = Instant.now().epochSecond
-        val sinceTs = nowTs - 86400  // last 24h
+    suspend fun readRecentWorkouts(): List<JSONObject> {
+        val end = Instant.now()
+        val start = end.minusSeconds(86400)
+        val range = TimeRangeFilter.between(start, end)
 
-        val uri = Uri.parse("content://$AUTHORITY/workout_samples/$deviceMac/$sinceTs/$nowTs")
-        val result = mutableListOf<JSONObject>()
+        return try {
+            val sessions = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records
+            sessions.map { session ->
+                val durationMinutes = ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
+                val hrRange = TimeRangeFilter.between(session.startTime, session.endTime)
+                val hrSamples = try {
+                    client.readRecords(ReadRecordsRequest(HeartRateRecord::class, hrRange)).records
+                        .flatMap { it.samples }.map { it.beatsPerMinute }
+                } catch (e: Exception) { emptyList() }
 
-        try {
-            resolver.query(uri, null, null, null, null)?.use { cursor ->
-                Log.d(TAG, "Workout columns: ${cursor.columnNames.joinToString()}")
+                val avgHr = if (hrSamples.isNotEmpty()) hrSamples.average().toInt() else null
+                val maxHr = hrSamples.maxOrNull()?.toInt()
 
-                val iId = cursor.getColumnIndex("ID").takeIf { it >= 0 }
-                    ?: cursor.getColumnIndex("TIMESTAMP").takeIf { it >= 0 }
-                val iType = cursor.getColumnIndex("WORKOUT_TYPE").takeIf { it >= 0 }
-                    ?: cursor.getColumnIndex("ACTIVITY_TYPE").takeIf { it >= 0 }
-                val iStart = cursor.getColumnIndex("START_TIME").takeIf { it >= 0 }
-                    ?: cursor.getColumnIndex("START_TIMESTAMP").takeIf { it >= 0 }
-                val iEnd = cursor.getColumnIndex("END_TIME").takeIf { it >= 0 }
-                    ?: cursor.getColumnIndex("END_TIMESTAMP").takeIf { it >= 0 }
-                val iDuration = cursor.getColumnIndex("DURATION").takeIf { it >= 0 }
-                val iAvgHr = cursor.getColumnIndex("AVG_HEART_RATE").takeIf { it >= 0 }
-                    ?: cursor.getColumnIndex("AVERAGE_HR").takeIf { it >= 0 }
-                val iMaxHr = cursor.getColumnIndex("MAX_HEART_RATE").takeIf { it >= 0 }
-                    ?: cursor.getColumnIndex("MAX_HR").takeIf { it >= 0 }
-                val iCal = cursor.getColumnIndex("CALORIES").takeIf { it >= 0 }
-
-                while (cursor.moveToNext()) {
-                    val id = iId?.let { cursor.getLong(it) } ?: continue
-                    val type = iType?.let { cursor.getString(it) } ?: "UNKNOWN"
-                    val startTs = iStart?.let { cursor.getLong(it) }
-                    val endTs = iEnd?.let { cursor.getLong(it) }
-
-                    val durationSeconds = when {
-                        iDuration != null -> cursor.getInt(iDuration)
-                        startTs != null && endTs != null -> (endTs - startTs).toInt()
-                        else -> null
-                    }
-                    val durationMinutes = durationSeconds?.let { it / 60 }
-
-                    val startedAt = startTs?.let {
-                        Instant.ofEpochSecond(it).toString()  // ISO-8601 UTC
-                    }
-                    val endedAt = endTs?.let {
-                        Instant.ofEpochSecond(it).toString()
-                    }
-
-                    val avgHr = iAvgHr?.let { cursor.getInt(it) }.takeIf { it != null && it > 0 }
-                    val maxHr = iMaxHr?.let { cursor.getInt(it) }.takeIf { it != null && it > 0 }
-                    val calories = iCal?.let { cursor.getInt(it) }.takeIf { it != null && it > 0 }
-
-                    result += JSONObject().apply {
-                        put("source_id", "gadgetbridge_${deviceMac}_$id")
-                        put("workout_type", type)
-                        put("started_at", startedAt ?: JSONObject.NULL)
-                        put("ended_at", endedAt ?: JSONObject.NULL)
-                        put("duration_minutes", durationMinutes ?: JSONObject.NULL)
-                        put("avg_hr", avgHr ?: JSONObject.NULL)
-                        put("max_hr", maxHr ?: JSONObject.NULL)
-                        put("calories", calories ?: JSONObject.NULL)
-                        put("notes", JSONObject.NULL)
-                    }
+                JSONObject().apply {
+                    put("source_id", "hc_${session.metadata.id}")
+                    put("workout_type", exerciseTypeName(session.exerciseType))
+                    put("started_at", session.startTime.toString())
+                    put("ended_at", session.endTime.toString())
+                    put("duration_minutes", durationMinutes)
+                    put("avg_hr", avgHr ?: JSONObject.NULL)
+                    put("max_hr", maxHr ?: JSONObject.NULL)
+                    put("calories", JSONObject.NULL)
+                    put("notes", session.title ?: JSONObject.NULL)
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "readRecentWorkouts failed", e)
+            emptyList()
         }
+    }
 
-        return result
+    private fun exerciseTypeName(type: Int): String = when (type) {
+        ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "RUNNING"
+        ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "WALKING"
+        ExerciseSessionRecord.EXERCISE_TYPE_CYCLING -> "CYCLING"
+        ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL -> "SWIMMING"
+        ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING -> "STRENGTH_TRAINING"
+        ExerciseSessionRecord.EXERCISE_TYPE_YOGA -> "YOGA"
+        ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "HIKING"
+        ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AMERICAN -> "FOOTBALL"
+        ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AUSTRALIAN -> "FOOTBALL"
+        ExerciseSessionRecord.EXERCISE_TYPE_SOCCER -> "FOOTBALL"
+        ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING -> "HIIT"
+        ExerciseSessionRecord.EXERCISE_TYPE_PILATES -> "PILATES"
+        ExerciseSessionRecord.EXERCISE_TYPE_BOXING -> "BOXING"
+        else -> "WORKOUT_$type"
     }
 }
