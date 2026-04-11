@@ -194,7 +194,7 @@ class HealthConnectReader(private val context: Context) {
     private fun exerciseTypeName(type: Int): String = when (type) {
         ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "RUNNING"
         ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "WALKING"
-        ExerciseSessionRecord.EXERCISE_TYPE_CYCLING -> "CYCLING"
+        ExerciseSessionRecord.EXERCISE_TYPE_BIKING -> "CYCLING"
         ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL -> "SWIMMING"
         ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING -> "STRENGTH_TRAINING"
         ExerciseSessionRecord.EXERCISE_TYPE_YOGA -> "YOGA"
