@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         binding.editPassword.setText(prefs.getString(Prefs.KEY_PASSWORD, ""))
 
         binding.btnSave.setOnClickListener { saveSettings() }
+        binding.btnGrantPermissions.setOnClickListener { requestPermissions.launch(HEALTH_PERMISSIONS) }
         binding.btnSyncNow.setOnClickListener { syncNow() }
 
         checkHealthConnectPermissions()
