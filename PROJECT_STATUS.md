@@ -158,6 +158,13 @@
 | Today view: `+` button + tappable event cards | Add or edit any log type directly from Today |
 | Avg wellbeing stat removed from Today | Severity average is misleading without more context |
 
+## Recent Decisions (TASK-040/041)
+| Decision | Detail |
+|---|---|
+| Stable tunnel approach | Tailscale instead of Cloudflare tunnel — free, private, no domain needed, works from any device with Tailscale installed |
+| Domain deferred | Buy a domain only if/when PocketCoach is shared with others |
+| TASK-039 | Done — Android companion app end-to-end verified |
+
 ## Recent Decisions (M12 Planning)
 | Decision | Detail |
 |---|---|
