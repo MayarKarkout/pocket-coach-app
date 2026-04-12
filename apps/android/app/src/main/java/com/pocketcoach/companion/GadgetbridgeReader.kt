@@ -13,6 +13,12 @@ import java.time.ZoneId
 
 private const val TAG = "HealthReader"
 
+// Filter to Gadgetbridge data only — avoids double-counting with phone's native health app
+private const val GB_PACKAGE = "nodomain.freeyourgadget.gadgetbridge"
+
+private fun <T : Record> List<T>.fromGadgetbridge() =
+    filter { it.metadata.dataOrigin.packageName.startsWith(GB_PACKAGE) }
+
 class HealthConnectReader(private val context: Context) {
 
     private val client by lazy { HealthConnectClient.getOrCreate(context) }
@@ -41,15 +47,16 @@ class HealthConnectReader(private val context: Context) {
             put("resting_hr", restingHr ?: JSONObject.NULL)
             put("hrv", hrv ?: JSONObject.NULL)
             put("spo2", spo2 ?: JSONObject.NULL)
-            put("stress_avg", JSONObject.NULL)  // not available in Health Connect
+            put("stress_avg", JSONObject.NULL)
             put("sleep", sleep ?: JSONObject.NULL)
         }
     }
 
     private suspend fun readSteps(range: TimeRangeFilter): Int? {
         return try {
-            val records = client.readRecords(ReadRecordsRequest(StepsRecord::class, range)).records
-            val total = records.sumOf { it.count }
+            val total = client.readRecords(ReadRecordsRequest(StepsRecord::class, range)).records
+                .fromGadgetbridge()
+                .sumOf { it.count }
             if (total > 0) total.toInt() else null
         } catch (e: Exception) {
             Log.w(TAG, "readSteps failed", e)
@@ -59,8 +66,9 @@ class HealthConnectReader(private val context: Context) {
 
     private suspend fun readCalories(range: TimeRangeFilter): Int? {
         return try {
-            val records = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, range)).records
-            val total = records.sumOf { it.energy.inKilocalories }
+            val total = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, range)).records
+                .fromGadgetbridge()
+                .sumOf { it.energy.inKilocalories }
             if (total > 0) total.toInt() else null
         } catch (e: Exception) {
             Log.w(TAG, "readCalories failed", e)
@@ -70,14 +78,15 @@ class HealthConnectReader(private val context: Context) {
 
     private suspend fun readRestingHr(range: TimeRangeFilter): Int? {
         return try {
-            // Prefer explicit RestingHeartRateRecord if Gadgetbridge writes it
             val resting = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, range)).records
-            if (resting.isNotEmpty()) {
-                return resting.last().beatsPerMinute.toInt()
-            }
-            // Fall back to minimum HR sample of the day
-            val hrRecords = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records
-            hrRecords.flatMap { it.samples }.map { it.beatsPerMinute }.minOrNull()?.toInt()
+                .fromGadgetbridge()
+            if (resting.isNotEmpty()) return resting.last().beatsPerMinute.toInt()
+
+            val hrSamples = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records
+                .fromGadgetbridge()
+                .flatMap { it.samples }
+                .map { it.beatsPerMinute }
+            hrSamples.minOrNull()?.toInt()
         } catch (e: Exception) {
             Log.w(TAG, "readRestingHr failed", e)
             null
@@ -87,8 +96,8 @@ class HealthConnectReader(private val context: Context) {
     private suspend fun readHrv(range: TimeRangeFilter): Double? {
         return try {
             val records = client.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, range)).records
-            if (records.isEmpty()) null
-            else records.map { it.heartRateVariabilityMillis }.average()
+                .fromGadgetbridge()
+            if (records.isEmpty()) null else records.map { it.heartRateVariabilityMillis }.average()
         } catch (e: Exception) {
             Log.w(TAG, "readHrv failed", e)
             null
@@ -98,8 +107,8 @@ class HealthConnectReader(private val context: Context) {
     private suspend fun readSpo2(range: TimeRangeFilter): Double? {
         return try {
             val records = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, range)).records
-            if (records.isEmpty()) null
-            else records.map { it.percentage.value }.average()
+                .fromGadgetbridge()
+            if (records.isEmpty()) null else records.map { it.percentage.value }.average()
         } catch (e: Exception) {
             Log.w(TAG, "readSpo2 failed", e)
             null
@@ -108,20 +117,15 @@ class HealthConnectReader(private val context: Context) {
 
     private suspend fun readSleep(date: LocalDate, zone: ZoneId): JSONObject? {
         return try {
-            // Sleep for "date" is last night — query sessions that END on this date (between 3am prev day and noon today)
+            // Last night's sleep: sessions ending between 6pm yesterday and 2pm today
             val windowStart = date.minusDays(1).atTime(18, 0).atZone(zone).toInstant()
             val windowEnd = date.atTime(14, 0).atZone(zone).toInstant()
             val range = TimeRangeFilter.between(windowStart, windowEnd)
 
-            val sessions = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records
-            if (sessions.isEmpty()) return null
-
-            // Use the longest session
-            val session = sessions.maxByOrNull {
-                it.endTime.epochSecond - it.startTime.epochSecond
-            } ?: return null
-
-            val totalMinutes = ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
+            val session = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, range)).records
+                .fromGadgetbridge()
+                .maxByOrNull { it.endTime.epochSecond - it.startTime.epochSecond }
+                ?: return null
 
             var deepMinutes = 0
             var lightMinutes = 0
@@ -138,8 +142,13 @@ class HealthConnectReader(private val context: Context) {
                 }
             }
 
+            // duration_minutes = actual sleep (excludes awake); fall back to session length if no stages
+            val asleepMinutes = deepMinutes + lightMinutes + remMinutes
+            val durationMinutes = if (asleepMinutes > 0) asleepMinutes
+                else ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
+
             JSONObject().apply {
-                put("duration_minutes", totalMinutes)
+                put("duration_minutes", durationMinutes)
                 put("deep_minutes", deepMinutes)
                 put("light_minutes", lightMinutes)
                 put("rem_minutes", remMinutes)
@@ -161,30 +170,29 @@ class HealthConnectReader(private val context: Context) {
         val range = TimeRangeFilter.between(start, end)
 
         return try {
-            val sessions = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records
-            sessions.map { session ->
-                val durationMinutes = ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
-                val hrRange = TimeRangeFilter.between(session.startTime, session.endTime)
-                val hrSamples = try {
-                    client.readRecords(ReadRecordsRequest(HeartRateRecord::class, hrRange)).records
-                        .flatMap { it.samples }.map { it.beatsPerMinute }
-                } catch (e: Exception) { emptyList() }
+            client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records
+                .fromGadgetbridge()
+                .map { session ->
+                    val durationMinutes = ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
+                    val hrRange = TimeRangeFilter.between(session.startTime, session.endTime)
+                    val hrSamples = try {
+                        client.readRecords(ReadRecordsRequest(HeartRateRecord::class, hrRange)).records
+                            .fromGadgetbridge()
+                            .flatMap { it.samples }.map { it.beatsPerMinute }
+                    } catch (e: Exception) { emptyList() }
 
-                val avgHr = if (hrSamples.isNotEmpty()) hrSamples.average().toInt() else null
-                val maxHr = hrSamples.maxOrNull()?.toInt()
-
-                JSONObject().apply {
-                    put("source_id", "hc_${session.metadata.id}")
-                    put("workout_type", exerciseTypeName(session.exerciseType))
-                    put("started_at", session.startTime.toString())
-                    put("ended_at", session.endTime.toString())
-                    put("duration_minutes", durationMinutes)
-                    put("avg_hr", avgHr ?: JSONObject.NULL)
-                    put("max_hr", maxHr ?: JSONObject.NULL)
-                    put("calories", JSONObject.NULL)
-                    put("notes", session.title ?: JSONObject.NULL)
+                    JSONObject().apply {
+                        put("source_id", "hc_${session.metadata.id}")
+                        put("workout_type", exerciseTypeName(session.exerciseType))
+                        put("started_at", session.startTime.toString())
+                        put("ended_at", session.endTime.toString())
+                        put("duration_minutes", durationMinutes)
+                        put("avg_hr", if (hrSamples.isNotEmpty()) hrSamples.average().toInt() else JSONObject.NULL)
+                        put("max_hr", hrSamples.maxOrNull()?.toInt() ?: JSONObject.NULL)
+                        put("calories", JSONObject.NULL)
+                        put("notes", session.title ?: JSONObject.NULL)
+                    }
                 }
-            }
         } catch (e: Exception) {
             Log.e(TAG, "readRecentWorkouts failed", e)
             emptyList()
