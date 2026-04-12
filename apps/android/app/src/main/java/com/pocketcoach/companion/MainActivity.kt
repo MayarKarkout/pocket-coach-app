@@ -118,24 +118,38 @@ class MainActivity : AppCompatActivity() {
         val reader = HealthConnectReader(this)
         var ok = 0
         var failed = 0
+        val errors = mutableListOf<String>()
 
         try {
             val snapshot = reader.readDailySnapshot(java.time.LocalDate.now())
-            if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/daily", snapshot) } != null) ok++ else failed++
+            android.util.Log.d("Sync", "Snapshot built: $snapshot")
+            if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/daily", snapshot) } != null) ok++ else {
+                errors += "POST /gadgetbridge/daily failed"
+                failed++
+            }
         } catch (e: Exception) {
+            android.util.Log.e("Sync", "Snapshot error", e)
+            errors += "Snapshot: ${e.message}"
             failed++
         }
 
         try {
             val workouts = reader.readRecentWorkouts()
+            android.util.Log.d("Sync", "Workouts found: ${workouts.size}")
             for (w in workouts) {
-                if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/workout", w) } != null) ok++ else failed++
+                if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/workout", w) } != null) ok++ else {
+                    errors += "POST /gadgetbridge/workout failed"
+                    failed++
+                }
             }
         } catch (e: Exception) {
+            android.util.Log.e("Sync", "Workouts error", e)
+            errors += "Workouts: ${e.message}"
             failed++
         }
 
-        return if (failed == 0) "Sync complete ($ok posted)" else "Sync done: $ok OK, $failed failed"
+        return if (failed == 0) "Sync complete ($ok posted)"
+        else "Sync done: $ok OK, $failed failed\n${errors.joinToString("\n")}"
     }
 
     private fun scheduleHourlySync() {
