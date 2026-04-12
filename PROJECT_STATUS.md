@@ -1,7 +1,7 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
-**M12: Health Data UI + LLM Integration** — 🔄 IN PROGRESS
+**M13: LLM Tool Use (deferred)** — ⬜ NOT STARTED
 
 ## Milestone Tracker
 | Milestone | Description | Status |
@@ -17,7 +17,7 @@
 | M9 | LLM Foundation | ✅ Done |
 | M10 | Data Summarization | ✅ Done |
 | M11 | Gadgetbridge Connector | ✅ Done |
-| M12 | Health Data UI + LLM Integration | 🔄 In progress (Android app built, pending HC permissions + end-to-end test) |
+| M12 | Health Data UI + LLM Integration | ✅ Done |
 | M13 | LLM Tool Use (deferred) | ⬜ Not started |
 
 ## What's Done (M1–M3)
@@ -87,6 +87,18 @@
 - `GET /gadgetbridge/workouts/pending` — list pending watch workouts with merge candidate (manual workout on same date if gym)
 - `POST /gadgetbridge/workouts/{id}/triage` — actions: `merge` (link to existing workout), `new_workout` (create Workout), `new_activity` (create ActivitySession), `dismiss`
 - All endpoints behind cookie auth
+
+## What's Done (M12 — Health Data UI + LLM Integration)
+- Today view: health stats card (steps + sleep quick view, expandable to HR/HRV/SpO2/stress/calories)
+- Today view: workout triage card (appears when pending watch workouts exist, actions: merge/new/activity/dismiss)
+- Insights: health section with sleep, HR, steps charts over time window
+- LLM briefing context: daily health snapshot (steps, sleep, HR) fed into briefing prompt
+- Android companion app (`apps/android/`): Kotlin app reads Health Connect, POSTs hourly to PocketCoach API via WorkManager
+  - Auth: session cookie (POST /auth/login), 401 re-login
+  - Data: steps, sleep stages, resting HR, HRV, SpO2, calories, workouts
+  - Filtered to Gadgetbridge data source only (avoids double-counting with phone health apps)
+  - Settings screen: URL + email + password; "Sync Now" button for manual trigger
+  - End-to-end verified: Gadgetbridge → Health Connect → companion app → PocketCoach API
 
 ## Context (M10 — Data Summarization)
 
@@ -224,4 +236,4 @@
 | TASK-041 | [tasks/TASK-041-m12-acceptance-test.md](tasks/TASK-041-m12-acceptance-test.md) | ⬜ Todo |
 
 ---
-*Last updated: 2026-04-12 — TASK-039 Android companion app built. Switched from Gadgetbridge ContentProvider (doesn't exist) to Health Connect API. App installs and runs; daily snapshot partially working. Blocked on Health Connect Exercise permission not being granted via auto-request — added explicit "Grant Permissions" button. Next: pull on Windows, rebuild, grant permissions, verify end-to-end data flow.*
+*Last updated: 2026-04-12 — M12 complete. Android companion app end-to-end verified: Gadgetbridge → Health Connect → PocketCoach API. Steps, sleep, and auth all working. M13 (LLM Tool Use) deferred until real usage demands it.*

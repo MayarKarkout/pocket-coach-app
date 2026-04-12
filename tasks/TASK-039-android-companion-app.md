@@ -1,5 +1,5 @@
 # TASK-039: Android Companion App
-Status: IN PROGRESS
+Status: DONE
 Milestone: M12
 
 ## Goal
