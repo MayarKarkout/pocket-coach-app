@@ -20,6 +20,7 @@ val HEALTH_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(SleepSessionRecord::class),
     HealthPermission.getReadPermission(HeartRateRecord::class),
     HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+    // Note: RestingHeartRateRecord needs its own manifest permission (READ_RESTING_HEART_RATE)
     HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
     HealthPermission.getReadPermission(OxygenSaturationRecord::class),
     HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
