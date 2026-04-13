@@ -81,7 +81,8 @@ def _fmt_granular(db: DBSession, today: Date) -> list[str]:
             total_kcal = 0
             for m in meals:
                 kcal = f" {m.calories}kcal" if m.calories else ""
-                meal_parts.append(f"{m.meal_type}{kcal}")
+                note = f": {m.notes}" if m.notes else ""
+                meal_parts.append(f"{m.meal_type}{kcal}{note}")
                 if m.calories:
                     total_kcal += m.calories
             kcal_str = f" (total: {total_kcal}kcal)" if total_kcal else ""
