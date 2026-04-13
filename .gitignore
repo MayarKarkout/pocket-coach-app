@@ -33,6 +33,9 @@ postgres_data/
 .idea/
 .vscode/settings.json
 
+# TLS certs
+certs/
+
 # Logs
 *.log
 npm-debug.log*

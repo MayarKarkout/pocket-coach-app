@@ -52,6 +52,16 @@ services:
       - web_node_modules:/app/node_modules
     command: sh -c "npm install && npm run dev"
 
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/tailscale.conf:/etc/nginx/conf.d/tailscale.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   pip_cache:
