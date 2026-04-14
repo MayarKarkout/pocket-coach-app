@@ -1,11 +1,13 @@
 from datetime import date as Date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from app.auth import get_current_user, get_db
+from app.db import SessionLocal
+from app.llm import ChatMessage, get_llm
 from app.models import MealLog, User
 
 router = APIRouter()
@@ -19,6 +21,7 @@ class MealLogOut(BaseModel):
     meal_type: str
     notes: str | None
     calories: int | None
+    calories_estimated: bool
     occurred_at: datetime | None
     created_at: datetime
 
@@ -50,6 +53,38 @@ class MealInsightsOut(BaseModel):
     days_logged: int
     avg_daily_calories: float | None
     by_period: list[PeriodMeals]
+
+
+async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) -> None:
+    description = meal_type
+    if notes:
+        description = f"{meal_type}: {notes}"
+
+    llm = get_llm()
+    try:
+        result = await llm.complete(
+            system=(
+                "You are a nutrition assistant. "
+                "Given a meal description, respond with ONLY a single integer representing the estimated calorie count. "
+                "If you cannot estimate, respond with 0. No explanation, no units, just the number."
+            ),
+            messages=[ChatMessage(role="user", content=description)],
+            model="gemini-2.0-flash",
+            max_tokens=16,
+        )
+        estimated = int(result.strip())
+    except Exception:
+        return
+
+    if estimated <= 0:
+        return
+
+    with SessionLocal() as db:
+        obj = db.get(MealLog, meal_id)
+        if obj is not None and obj.calories is None:
+            obj.calories = estimated
+            obj.calories_estimated = True
+            db.commit()
 
 
 @router.get("/insights", response_model=MealInsightsOut)
@@ -106,8 +141,9 @@ def list_meals(db: DBSession = Depends(get_db), _: User = Depends(get_current_us
 
 
 @router.post("", response_model=MealLogOut, status_code=201)
-def create_meal(
+async def create_meal(
     body: CreateMealBody,
+    background_tasks: BackgroundTasks,
     db: DBSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -116,11 +152,16 @@ def create_meal(
         meal_type=body.meal_type,
         notes=body.notes,
         calories=body.calories,
+        calories_estimated=False,
         occurred_at=body.occurred_at,
     )
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    if body.calories is None:
+        background_tasks.add_task(_estimate_calories, obj.id, obj.meal_type, obj.notes)
+
     return obj
 
 
@@ -151,6 +192,7 @@ def update_meal(
         obj.notes = body.notes
     if "calories" in fields:
         obj.calories = body.calories
+        obj.calories_estimated = False
     if "occurred_at" in fields:
         obj.occurred_at = body.occurred_at
     db.commit()

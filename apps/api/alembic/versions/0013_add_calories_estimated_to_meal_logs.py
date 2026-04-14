@@ -1,0 +1,33 @@
+"""add calories_estimated to meal_logs
+
+Revision ID: 0013
+Revises: 0012
+Create Date: 2026-04-15 00:00:00.000000
+
+"""
+
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "0013"
+down_revision: Union[str, None] = "0012"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.add_column(
+        "meal_logs",
+        sa.Column(
+            "calories_estimated",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.false(),
+        ),
+    )
+
+
+def downgrade() -> None:
+    op.drop_column("meal_logs", "calories_estimated")

@@ -174,6 +174,7 @@ class MealLog(Base):
     meal_type: Mapped[str] = mapped_column(String, nullable=False)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
     calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    calories_estimated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

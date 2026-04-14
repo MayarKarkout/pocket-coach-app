@@ -39,6 +39,7 @@ export interface MealLog {
   meal_type: string;
   notes: string | null;
   calories: number | null;
+  calories_estimated: boolean;
   occurred_at: string | null;
   created_at: string;
 }

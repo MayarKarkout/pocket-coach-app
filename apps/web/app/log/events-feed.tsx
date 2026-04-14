@@ -153,7 +153,7 @@ function MealCard({
         <span className="font-medium capitalize">{item.meal_type}</span>
         <span className="text-xs text-muted-foreground">
           {formatDate(item.date)}{item.occurred_at && ` · ${formatTime(item.occurred_at)}`}
-          {item.calories != null && ` · ${item.calories} kcal`}
+          {item.calories != null && ` · ${item.calories_estimated ? "~" : ""}${item.calories} kcal`}
         </span>
         {item.notes && (
           <span className="text-xs text-muted-foreground truncate">{item.notes}</span>

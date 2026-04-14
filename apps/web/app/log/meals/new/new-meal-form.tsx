@@ -126,6 +126,11 @@ export function NewMealForm() {
           onChange={(e) => setNotes(e.target.value)}
           className="rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none"
         />
+        {!calories && notes.length > 0 && notes.length < 10 && (
+          <p className="text-xs text-muted-foreground">
+            Add ingredient details (e.g. "200g chicken, rice") for a better calorie estimate.
+          </p>
+        )}
       </div>
 
       <button

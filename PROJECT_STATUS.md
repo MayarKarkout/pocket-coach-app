@@ -158,6 +158,17 @@
 | Today view: `+` button + tappable event cards | Add or edit any log type directly from Today |
 | Avg wellbeing stat removed from Today | Severity average is misleading without more context |
 
+## Recent Decisions — AI Calorie Estimation
+| Decision | Detail |
+|---|---|
+| Calories estimated by AI | On meal save, backend triggers async AI call to estimate kcal from notes |
+| Async, non-blocking | Form closes immediately; calories field populates in feed once estimate arrives |
+| Manual override kept | Calories field stays on create form; user can enter exact value to skip estimation |
+| Edit always available | Estimated (or any) calories editable after the fact via edit form |
+| Vague notes: warn + call anyway | Non-blocking UI warning if notes are sparse; AI call still fires (name alone may suffice) |
+| LLM context flag | `calories_estimated: bool` on `meal_logs`; passed to Coach briefing so it hedges on estimated values |
+| Interim solution | AI estimation is a stopgap until a proper food DB / barcode system is built |
+
 ## Recent Decisions (TASK-040/041)
 | Decision | Detail |
 |---|---|
@@ -241,6 +252,7 @@
 | TASK-039 | [tasks/TASK-039-android-companion-app.md](tasks/TASK-039-android-companion-app.md) | ⬜ Todo |
 | TASK-040 | [tasks/TASK-040-cloudflare-stable-tunnel.md](tasks/TASK-040-cloudflare-stable-tunnel.md) | ⬜ Todo |
 | TASK-041 | [tasks/TASK-041-m12-acceptance-test.md](tasks/TASK-041-m12-acceptance-test.md) | ⬜ Todo |
+| TASK-042 | tasks/TASK-042-ai-calorie-estimation.md | ⬜ Todo |
 
 ---
 *Last updated: 2026-04-12 — M12 complete. Android companion app end-to-end verified: Gadgetbridge → Health Connect → PocketCoach API. Steps, sleep, and auth all working. M13 (LLM Tool Use) deferred until real usage demands it.*
