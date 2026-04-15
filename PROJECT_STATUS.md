@@ -169,6 +169,9 @@
 | LLM context flag | `calories_estimated: bool` on `meal_logs`; passed to Coach briefing so it hedges on estimated values |
 | Interim solution | AI estimation is a stopgap until a proper food DB / barcode system is built |
 
+## Deployment
+Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100.104.55.29`. Runs `git pull`, `docker compose up --build -d`, `alembic upgrade head`. No manual steps needed.
+
 ## Recent Decisions (TASK-040/041)
 | Decision | Detail |
 |---|---|
