@@ -59,6 +59,17 @@ class MealInsightsOut(BaseModel):
     by_period: list[PeriodMeals]
 
 
+def _parse_calorie_response(result: str | None) -> int | None:
+    """Extract a positive integer calorie count from an LLM response string."""
+    if not result:
+        return None
+    match = re.search(r"\d+", result)
+    if not match:
+        return None
+    value = int(match.group())
+    return value if value > 0 else None
+
+
 async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) -> None:
     description = meal_type
     if notes:
@@ -76,19 +87,13 @@ async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) ->
             model="gemini-3-flash-preview",
             max_tokens=64,
         )
-        if not result:
-            logger.warning("Calorie estimation for meal %d returned empty response", meal_id)
-            return
-        match = re.search(r"\d+", result)
-        if not match:
-            logger.warning("Calorie estimation for meal %d: no number in response: %r", meal_id, result)
-            return
-        estimated = int(match.group())
     except Exception:
-        logger.exception("Calorie estimation failed for meal %d", meal_id)
+        logger.exception("Calorie estimation LLM call failed for meal %d", meal_id)
         return
 
-    if estimated <= 0:
+    estimated = _parse_calorie_response(result)
+    if estimated is None:
+        logger.warning("Calorie estimation for meal %d: could not parse response: %r", meal_id, result)
         return
 
     with SessionLocal() as db:
