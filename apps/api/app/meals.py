@@ -78,14 +78,13 @@ async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) ->
     llm = get_llm()
     try:
         result = await llm.complete(
-            system=(
-                "You are a nutrition assistant. "
-                "Given a meal description, estimate the total calorie count. "
-                "Respond with ONLY a single integer. No words, no units, no explanation — just the number."
-            ),
-            messages=[ChatMessage(role="user", content=description)],
+            system="You are a nutrition assistant.",
+            messages=[ChatMessage(
+                role="user",
+                content=f"Estimate the calories in this meal and reply with ONLY a number: {description}",
+            )],
             model="gemini-3-flash-preview",
-            max_tokens=64,
+            max_tokens=1024,
         )
     except Exception:
         logger.exception("Calorie estimation LLM call failed for meal %d", meal_id)
