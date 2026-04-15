@@ -255,7 +255,7 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-039 | [tasks/TASK-039-android-companion-app.md](tasks/TASK-039-android-companion-app.md) | ⬜ Todo |
 | TASK-040 | [tasks/TASK-040-cloudflare-stable-tunnel.md](tasks/TASK-040-cloudflare-stable-tunnel.md) | ⬜ Todo |
 | TASK-041 | [tasks/TASK-041-m12-acceptance-test.md](tasks/TASK-041-m12-acceptance-test.md) | ⬜ Todo |
-| TASK-042 | tasks/TASK-042-ai-calorie-estimation.md | ⬜ Todo |
+| TASK-042 | tasks/TASK-042-ai-calorie-estimation.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-12 — M12 complete. Android companion app end-to-end verified: Gadgetbridge → Health Connect → PocketCoach API. Steps, sleep, and auth all working. M13 (LLM Tool Use) deferred until real usage demands it.*
+*Last updated: 2026-04-15 — AI calorie estimation live (TASK-042). Push-to-deploy pipeline live via GitHub Actions + Tailscale SSH. M13 (LLM Tool Use) still deferred.*

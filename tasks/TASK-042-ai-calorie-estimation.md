@@ -26,4 +26,8 @@ Automatically estimate calories for meal logs using Gemini when the user doesn't
 None
 
 ## Where we left off
-Starting implementation.
+Done and verified. Gemini returns ~700 kcal range for a typical meal. Feed shows `~` prefix on estimates.
+
+## Notes
+- Gemini `gemini-3-flash-preview` returns `\n` when system prompt is too prescriptive + max_tokens is small. Fix: put instruction in user message, use default max_tokens (1024).
+- `_parse_calorie_response()` extracted as testable helper; 9 unit tests in `apps/api/tests/test_calorie_estimation.py`.
