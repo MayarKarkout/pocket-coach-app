@@ -69,7 +69,7 @@ async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) ->
                 "If you cannot estimate, respond with 0. No explanation, no units, just the number."
             ),
             messages=[ChatMessage(role="user", content=description)],
-            model="gemini-2.0-flash",
+            model="gemini-3-flash-preview",
             max_tokens=16,
         )
         estimated = int(result.strip())
