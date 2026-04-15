@@ -1,3 +1,5 @@
+import logging
+import re
 from datetime import date as Date, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -9,6 +11,8 @@ from app.auth import get_current_user, get_db
 from app.db import SessionLocal
 from app.llm import ChatMessage, get_llm
 from app.models import MealLog, User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -65,15 +69,23 @@ async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) ->
         result = await llm.complete(
             system=(
                 "You are a nutrition assistant. "
-                "Given a meal description, respond with ONLY a single integer representing the estimated calorie count. "
-                "If you cannot estimate, respond with 0. No explanation, no units, just the number."
+                "Given a meal description, estimate the total calorie count. "
+                "Respond with ONLY a single integer. No words, no units, no explanation — just the number."
             ),
             messages=[ChatMessage(role="user", content=description)],
             model="gemini-3-flash-preview",
-            max_tokens=16,
+            max_tokens=64,
         )
-        estimated = int(result.strip())
+        if not result:
+            logger.warning("Calorie estimation for meal %d returned empty response", meal_id)
+            return
+        match = re.search(r"\d+", result)
+        if not match:
+            logger.warning("Calorie estimation for meal %d: no number in response: %r", meal_id, result)
+            return
+        estimated = int(match.group())
     except Exception:
+        logger.exception("Calorie estimation failed for meal %d", meal_id)
         return
 
     if estimated <= 0:
@@ -85,6 +97,7 @@ async def _estimate_calories(meal_id: int, meal_type: str, notes: str | None) ->
             obj.calories = estimated
             obj.calories_estimated = True
             db.commit()
+            logger.info("Calorie estimation for meal %d: %d kcal", meal_id, estimated)
 
 
 @router.get("/insights", response_model=MealInsightsOut)
