@@ -161,23 +161,29 @@ class HealthConnectReader(private val context: Context) {
     }
 
     // -------------------------------------------------------------------------
-    // Recent workouts (last 24h)
+    // Recent workouts (last 7 days)
     // -------------------------------------------------------------------------
 
     suspend fun readRecentWorkouts(): List<JSONObject> {
         val end = Instant.now()
-        val start = end.minusSeconds(86400)
+        val start = end.minusSeconds(7 * 86400L)  // 7 days — backend dedupes by source_id
         val range = TimeRangeFilter.between(start, end)
 
         return try {
-            client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records
-                .fromGadgetbridge()
-                .map { session ->
+            // No Gadgetbridge-package filter here: CMF Watch Pro 3 (experimental support) may
+            // write ExerciseSessionRecord under a different data origin or not at all via GB.
+            // Daily snapshot metrics keep the filter to avoid double-counting phone health apps.
+            val records = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range)).records
+            Log.d(TAG, "ExerciseSessionRecord: ${records.size} total in last 7 days")
+            records.forEachIndexed { i, r ->
+                Log.d(TAG, "  [$i] origin=${r.metadata.dataOrigin.packageName} type=${r.exerciseType} start=${r.startTime}")
+            }
+            records.map { session ->
                     val durationMinutes = ((session.endTime.epochSecond - session.startTime.epochSecond) / 60).toInt()
                     val hrRange = TimeRangeFilter.between(session.startTime, session.endTime)
                     val hrSamples = try {
+                        // No package filter — match whatever source wrote the session
                         client.readRecords(ReadRecordsRequest(HeartRateRecord::class, hrRange)).records
-                            .fromGadgetbridge()
                             .flatMap { it.samples }.map { it.beatsPerMinute }
                     } catch (e: Exception) { emptyList() }
 

@@ -19,16 +19,19 @@ export function BriefingSection() {
 
   useEffect(() => {
     apiFetch("/briefing/today")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load briefing");
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail ?? "Could not load your briefing.");
+        }
         return res.json() as Promise<BriefingOut>;
       })
       .then((data) => {
         setBriefing(data);
         setLoading(false);
       })
-      .catch(() => {
-        setError("Could not load your briefing.");
+      .catch((e: Error) => {
+        setError(e.message);
         setLoading(false);
       });
   }, []);
@@ -38,11 +41,14 @@ export function BriefingSection() {
     setError(null);
     try {
       const res = await apiFetch("/briefing/today/regenerate", { method: "POST" });
-      if (!res.ok) throw new Error("Regenerate failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Could not regenerate briefing.");
+      }
       const data = (await res.json()) as BriefingOut;
       setBriefing(data);
-    } catch {
-      setError("Could not regenerate briefing.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not regenerate briefing.");
     } finally {
       setRegenerating(false);
     }

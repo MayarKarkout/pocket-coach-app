@@ -73,7 +73,6 @@ async def _generate_and_store(db: DBSession, llm: LLMProvider, today: Date) -> D
         system=BRIEFING_SYSTEM,
         messages=[ChatMessage(role="user", content=f"Generate my daily briefing.\n\n{context}")],
         model=BRIEFING_MODEL,
-        max_tokens=1024,
     )
     briefing = DailyBriefing(date=today, content=content, model=BRIEFING_MODEL)
     db.add(briefing)
@@ -131,6 +130,5 @@ async def chat(
         system=system,
         messages=messages,
         model=CHAT_MODEL,
-        max_tokens=1024,
     )
     return ChatResponse(reply=reply)

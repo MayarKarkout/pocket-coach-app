@@ -136,9 +136,16 @@ class MainActivity : AppCompatActivity() {
         try {
             val workouts = reader.readRecentWorkouts()
             android.util.Log.d("Sync", "Workouts found: ${workouts.size}")
+            if (workouts.isEmpty()) {
+                errors += "No workouts found in Health Connect (last 7 days)"
+            }
             for (w in workouts) {
-                if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/workout", w) } != null) ok++ else {
-                    errors += "POST /gadgetbridge/workout failed"
+                val label = "${w.optString("workout_type")} @ ${w.optString("started_at").take(16)}"
+                if (withContext(Dispatchers.IO) { api.post("/gadgetbridge/workout", w) } != null) {
+                    ok++
+                    android.util.Log.d("Sync", "Workout posted: $label")
+                } else {
+                    errors += "POST /gadgetbridge/workout failed: $label"
                     failed++
                 }
             }
@@ -148,7 +155,8 @@ class MainActivity : AppCompatActivity() {
             failed++
         }
 
-        return if (failed == 0) "Sync complete ($ok posted)"
+        return if (failed == 0 && errors.isEmpty()) "Sync complete ($ok posted)"
+        else if (failed == 0) "Sync complete ($ok posted)\n${errors.joinToString("\n")}"
         else "Sync done: $ok OK, $failed failed\n${errors.joinToString("\n")}"
     }
 

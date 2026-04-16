@@ -51,13 +51,16 @@ export function ChatSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, history: messages }),
       });
-      if (!res.ok) throw new Error("Chat request failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Something went wrong. Please try again.");
+      }
       const data = (await res.json()) as ChatOut;
       setMessages([...history, { role: "assistant", content: data.reply }]);
-    } catch {
+    } catch (e) {
       setMessages([
         ...history,
-        { role: "assistant", content: "Sorry, something went wrong. Please try again." },
+        { role: "assistant", content: e instanceof Error ? e.message : "Something went wrong. Please try again." },
       ]);
     } finally {
       setThinking(false);
