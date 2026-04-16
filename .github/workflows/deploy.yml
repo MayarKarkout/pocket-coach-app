@@ -27,5 +27,5 @@ jobs:
             set -e
             cd ~/projects/pocket-coach-app
             git pull origin main
-            docker compose up --build -d
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
             docker exec pocket-coach-app-api-1 alembic upgrade head
