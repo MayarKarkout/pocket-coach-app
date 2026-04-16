@@ -81,7 +81,12 @@ export function SummaryInsights({ range }: { range: DateRange }) {
     });
   }, [range.from, range.to]);
 
-  if (data === null) return null;
+  if (data === null) return (
+    <section>
+      <h2 className="text-lg font-semibold mb-3">All Activity</h2>
+      <p className="text-muted-foreground text-sm">Loading…</p>
+    </section>
+  );
 
   return (
     <section>

@@ -84,16 +84,15 @@ def get_activity_insights(
 
 
 @router.get("", response_model=list[ActivitySessionOut])
-def list_activity(db: DBSession = Depends(get_db), _: User = Depends(get_current_user)):
-    return (
-        db.execute(
-            select(ActivitySession).order_by(
-                ActivitySession.date.desc(), ActivitySession.created_at.desc()
-            )
-        )
-        .scalars()
-        .all()
-    )
+def list_activity(
+    db: DBSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    date: Date | None = Query(None),
+):
+    stmt = select(ActivitySession).order_by(ActivitySession.date.desc(), ActivitySession.created_at.desc())
+    if date is not None:
+        stmt = stmt.where(ActivitySession.date == date)
+    return db.execute(stmt).scalars().all()
 
 
 @router.post("", response_model=ActivitySessionOut, status_code=201)

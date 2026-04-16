@@ -1,7 +1,7 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
-**M13: LLM Tool Use (deferred)** — ⬜ NOT STARTED
+**M14: Performance & Polish** — 🔄 IN PROGRESS
 
 ## Milestone Tracker
 | Milestone | Description | Status |
@@ -19,6 +19,7 @@
 | M11 | Gadgetbridge Connector | ✅ Done |
 | M12 | Health Data UI + LLM Integration | ✅ Done |
 | M13 | LLM Tool Use (deferred) | ⬜ Not started |
+| M14 | Performance & Polish | 🔄 In progress |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -158,6 +159,15 @@
 | Today view: `+` button + tappable event cards | Add or edit any log type directly from Today |
 | Avg wellbeing stat removed from Today | Severity average is misleading without more context |
 
+## Recent Decisions (M14 — Performance & Polish)
+| Decision | Detail |
+|---|---|
+| Loading states: simple spinner | Use a simple spinner (not skeleton shapes) for all route loading states |
+| TASK-044: Frontend loading states | Add `loading.tsx` with spinner to Today, Log, Workouts, Insights routes; wrap data sections in Suspense — fixes "Rendering..." dead time on navigation |
+| TASK-045: Log tab zoom bug | Find and fix viewport overflow on Log page causing mobile browser auto-zoom; small CSS fix |
+| TASK-046: Backend query optimisation | Add date indexes (migration), fix N+1 in gym insights with `selectinload`, parallelize Today endpoint queries, add server-side date filtering to Log endpoint, cache LLM context for the day |
+| Task order | 044 → 045 → 046; frontend feel first, DB migration last |
+
 ## Recent Decisions — AI Calorie Estimation
 | Decision | Detail |
 |---|---|
@@ -256,6 +266,9 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-040 | [tasks/TASK-040-cloudflare-stable-tunnel.md](tasks/TASK-040-cloudflare-stable-tunnel.md) | ⬜ Todo |
 | TASK-041 | [tasks/TASK-041-m12-acceptance-test.md](tasks/TASK-041-m12-acceptance-test.md) | ⬜ Todo |
 | TASK-042 | tasks/TASK-042-ai-calorie-estimation.md | ✅ Done |
+| TASK-044 | tasks/TASK-044-frontend-loading-states.md | ✅ Done |
+| TASK-045 | tasks/TASK-045-log-zoom-fix.md | ✅ Done |
+| TASK-046 | tasks/TASK-046-backend-query-optimisation.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-15 — AI calorie estimation live (TASK-042). Push-to-deploy pipeline live via GitHub Actions + Tailscale SSH. M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-04-16 — M14 (Performance & Polish) complete. TASK-044/045/046 done. Migration 0014 (date indexes) needs running. M13 (LLM Tool Use) still deferred.*

@@ -28,7 +28,12 @@ export function FootballInsights({ range }: { range: DateRange }) {
       .then(setData);
   }, [range.from, range.to]);
 
-  if (!data) return null;
+  if (!data) return (
+    <section>
+      <h2 className="text-lg font-semibold mb-2">Football</h2>
+      <p className="text-muted-foreground text-sm">Loading…</p>
+    </section>
+  );
 
   if (data.sessions === 0) {
     return (

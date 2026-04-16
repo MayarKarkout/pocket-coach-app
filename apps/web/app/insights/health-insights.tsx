@@ -90,6 +90,8 @@ export function HealthInsights({ range }: { range: DateRange }) {
     <section>
       <h2 className="text-lg font-semibold mb-3">Health</h2>
 
+      {!data && <p className="text-muted-foreground text-sm">Loading…</p>}
+
       {data && !hasData && (
         <p className="text-muted-foreground text-sm">No health data in this period.</p>
       )}

@@ -16,6 +16,24 @@ router = APIRouter(prefix="/briefing", tags=["briefing"])
 
 USER_TIMEZONE = os.environ.get("USER_TIMEZONE", "UTC")
 
+# Simple day-scoped in-memory context cache.
+# Single-user app in a single process — a module-level dict is sufficient.
+# Key is ISO date string; cleared whenever a new day's context is first requested.
+_context_cache: dict[str, str] = {}
+
+
+def _get_cached_context(db: DBSession, today: Date) -> str:
+    today_str = today.isoformat()
+    if _context_cache and next(iter(_context_cache)) != today_str:
+        _context_cache.clear()
+    if today_str not in _context_cache:
+        _context_cache[today_str] = build_context(db, today)
+    return _context_cache[today_str]
+
+
+def _invalidate_context_cache() -> None:
+    _context_cache.clear()
+
 BRIEFING_MODEL = "gemini-3-flash-preview"
 CHAT_MODEL = "gemini-3-flash-preview"
 
@@ -68,7 +86,7 @@ class ChatResponse(BaseModel):
 
 
 async def _generate_and_store(db: DBSession, llm: LLMProvider, today: Date) -> DailyBriefing:
-    context = build_context(db, today)
+    context = _get_cached_context(db, today)
     content = await llm.complete(
         system=BRIEFING_SYSTEM,
         messages=[ChatMessage(role="user", content=f"Generate my daily briefing.\n\n{context}")],
@@ -110,6 +128,7 @@ async def regenerate_briefing(
     llm: LLMProvider = Depends(get_llm),
 ) -> BriefingOut:
     today = _today_user_tz()
+    _invalidate_context_cache()
     db.execute(delete(DailyBriefing).where(DailyBriefing.date == today))
     db.commit()
     return _to_out(await _generate_and_store(db, llm, today))
@@ -123,7 +142,7 @@ async def chat(
     llm: LLMProvider = Depends(get_llm),
 ) -> ChatResponse:
     today = _today_user_tz()
-    context = build_context(db, today)
+    context = _get_cached_context(db, today)
     system = CHAT_SYSTEM.format(context=context)
     messages = list(request.history) + [ChatMessage(role="user", content=request.message)]
     reply = await llm.complete(

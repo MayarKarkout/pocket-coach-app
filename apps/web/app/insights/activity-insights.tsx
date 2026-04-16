@@ -65,6 +65,8 @@ export function ActivityInsights({ range }: { range: DateRange }) {
     <section>
       <h2 className="text-lg font-semibold mb-3">Activity</h2>
 
+      {!data && <p className="text-muted-foreground text-sm">Loading…</p>}
+
       {data && data.by_period.length === 0 && (
         <p className="text-muted-foreground text-sm">
           No activities in this period.

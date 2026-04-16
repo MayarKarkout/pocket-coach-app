@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import { PageSpinner } from "@/components/ui/page-spinner";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -214,6 +215,7 @@ function LogPageInner() {
   const selectedDate = searchParams.get("date") ?? today();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [allItems, setAllItems] = useState<EventItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(true);
 
   function setSelectedDate(date: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -222,12 +224,13 @@ function LogPageInner() {
   }
 
   useEffect(() => {
-    async function fetchAll() {
+    setLoadingItems(true);
+    async function fetchForDate() {
       const [footballRes, activityRes, wellbeingRes, mealsRes] = await Promise.all([
-        apiFetch("/football"),
-        apiFetch("/activity"),
-        apiFetch("/wellbeing"),
-        apiFetch("/meals"),
+        apiFetch(`/football?date=${selectedDate}`),
+        apiFetch(`/activity?date=${selectedDate}`),
+        apiFetch(`/wellbeing?date=${selectedDate}`),
+        apiFetch(`/meals?date=${selectedDate}`),
       ]);
 
       const [football, activity, wellbeing, meals]: [
@@ -247,17 +250,14 @@ function LogPageInner() {
         ...activity.map((d): EventItem => ({ kind: "activity", data: d })),
         ...wellbeing.map((d): EventItem => ({ kind: "wellbeing", data: d })),
         ...meals.map((d): EventItem => ({ kind: "meal", data: d })),
-      ].sort((a, b) => {
-        const dateDiff = b.data.date.localeCompare(a.data.date);
-        if (dateDiff !== 0) return dateDiff;
-        return b.data.created_at.localeCompare(a.data.created_at);
-      });
+      ].sort((a, b) => b.data.created_at.localeCompare(a.data.created_at));
 
       setAllItems(items);
+      setLoadingItems(false);
     }
 
-    fetchAll();
-  }, []);
+    fetchForDate();
+  }, [selectedDate]);
 
   function deleteItem(item: EventItem) {
     const path =
@@ -276,11 +276,9 @@ function LogPageInner() {
     });
   }
 
-  const filteredItems = allItems.filter((item) => {
-    if (item.data.date !== selectedDate) return false;
-    if (typeFilter !== "all" && item.kind !== typeFilter) return false;
-    return true;
-  });
+  const filteredItems = typeFilter === "all"
+    ? allItems
+    : allItems.filter((item) => item.kind === typeFilter);
 
   const isToday = selectedDate === today();
 
@@ -370,7 +368,9 @@ function LogPageInner() {
       </div>
 
       {/* Feed */}
-      {filteredItems.length === 0 ? (
+      {loadingItems ? (
+        <PageSpinner />
+      ) : filteredItems.length === 0 ? (
         <p className="text-muted-foreground text-sm">No events logged yet.</p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -422,7 +422,7 @@ function LogPageInner() {
 
 export default function LogPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSpinner />}>
       <LogPageInner />
     </Suspense>
   );

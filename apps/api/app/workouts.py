@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import Session as DBSession, selectinload
 
 from app.auth import get_current_user, get_db
 from app.models import PlanDay, PlanExercise, User, Workout, WorkoutExercise, WorkoutSet
@@ -233,7 +233,11 @@ def list_workouts(
     db: DBSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[WorkoutSummaryOut]:
-    workouts = list(db.scalars(select(Workout).order_by(Workout.date.desc(), Workout.id.desc())))
+    workouts = list(db.scalars(
+        select(Workout)
+        .options(selectinload(Workout.exercises).selectinload(WorkoutExercise.sets))
+        .order_by(Workout.date.desc(), Workout.id.desc())
+    ))
     return [_workout_summary(w) for w in workouts]
 
 
@@ -281,6 +285,7 @@ def get_gym_insights(
         db.scalars(
             select(Workout)
             .where(Workout.date >= from_date, Workout.date <= to_date)
+            .options(selectinload(Workout.exercises).selectinload(WorkoutExercise.sets))
             .order_by(Workout.date.asc())
         )
     )

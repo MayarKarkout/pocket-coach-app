@@ -33,7 +33,12 @@ export function MealInsights({ range }: { range: DateRange }) {
       .then(setData);
   }, [range.from, range.to]);
 
-  if (!data) return null;
+  if (!data) return (
+    <section>
+      <h2 className="text-lg font-semibold mb-3">Meals</h2>
+      <p className="text-muted-foreground text-sm">Loading…</p>
+    </section>
+  );
 
   if (data.total_meals === 0) {
     return (

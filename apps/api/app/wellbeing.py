@@ -80,12 +80,12 @@ class WellbeingInsightsOut(BaseModel):
 def list_wellbeing_logs(
     db: DBSession = Depends(get_db),
     _: User = Depends(get_current_user),
+    date: Date | None = Query(None),
 ) -> list[WellbeingLog]:
-    return list(
-        db.scalars(
-            select(WellbeingLog).order_by(WellbeingLog.date.desc(), WellbeingLog.created_at.desc())
-        )
-    )
+    stmt = select(WellbeingLog).order_by(WellbeingLog.date.desc(), WellbeingLog.created_at.desc())
+    if date is not None:
+        stmt = stmt.where(WellbeingLog.date == date)
+    return list(db.scalars(stmt))
 
 
 @router.post("", response_model=WellbeingLogOut, status_code=201)

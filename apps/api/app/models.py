@@ -114,7 +114,7 @@ class Workout(Base):
     __tablename__ = "workouts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     plan_day_id: Mapped[int | None] = mapped_column(ForeignKey("plan_days.id"), nullable=True)
     plan_day_label: Mapped[str] = mapped_column(String, nullable=False)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -170,7 +170,7 @@ class MealLog(Base):
     __tablename__ = "meal_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     meal_type: Mapped[str] = mapped_column(String, nullable=False)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
     calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -185,7 +185,7 @@ class FootballSession(Base):
     __tablename__ = "football_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     session_type: Mapped[str] = mapped_column(String, nullable=False)  # "training" | "match"
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     rpe: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -204,7 +204,7 @@ class ActivitySession(Base):
     __tablename__ = "activity_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     activity_type: Mapped[str] = mapped_column(String, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -222,7 +222,7 @@ class WellbeingLog(Base):
     __tablename__ = "wellbeing_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     log_type: Mapped[str] = mapped_column(String, nullable=False)  # "pain" | "fatigue" | "soreness"
     severity: Mapped[int] = mapped_column(Integer, nullable=False)
     body_part: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -303,7 +303,7 @@ class WatchWorkout(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     source_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     source: Mapped[str] = mapped_column(String, nullable=False)  # "gadgetbridge"
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)

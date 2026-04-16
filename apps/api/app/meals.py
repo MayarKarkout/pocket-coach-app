@@ -149,11 +149,15 @@ def get_meal_insights(
 
 
 @router.get("", response_model=list[MealLogOut])
-def list_meals(db: DBSession = Depends(get_db), _: User = Depends(get_current_user)):
-    rows = db.execute(
-        select(MealLog).order_by(MealLog.date.desc(), MealLog.created_at.desc())
-    ).scalars().all()
-    return rows
+def list_meals(
+    db: DBSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    date: Date | None = Query(None),
+):
+    stmt = select(MealLog).order_by(MealLog.date.desc(), MealLog.created_at.desc())
+    if date is not None:
+        stmt = stmt.where(MealLog.date == date)
+    return db.execute(stmt).scalars().all()
 
 
 @router.post("", response_model=MealLogOut, status_code=201)

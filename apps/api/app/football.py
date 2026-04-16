@@ -88,11 +88,15 @@ def get_football_insights(
 
 
 @router.get("", response_model=list[FootballSessionOut])
-def list_football_sessions(db: DBSession = Depends(get_db), _: User = Depends(get_current_user)):
-    rows = db.execute(
-        select(FootballSession).order_by(FootballSession.date.desc(), FootballSession.created_at.desc())
-    ).scalars().all()
-    return rows
+def list_football_sessions(
+    db: DBSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    date: Date | None = Query(None),
+):
+    stmt = select(FootballSession).order_by(FootballSession.date.desc(), FootballSession.created_at.desc())
+    if date is not None:
+        stmt = stmt.where(FootballSession.date == date)
+    return db.execute(stmt).scalars().all()
 
 
 @router.post("", response_model=FootballSessionOut, status_code=201)
