@@ -1,7 +1,7 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
-**M14: Performance & Polish** — 🔄 IN PROGRESS
+**M14: Performance & Polish** — ✅ DONE
 
 ## Milestone Tracker
 | Milestone | Description | Status |
@@ -19,7 +19,7 @@
 | M11 | Gadgetbridge Connector | ✅ Done |
 | M12 | Health Data UI + LLM Integration | ✅ Done |
 | M13 | LLM Tool Use (deferred) | ⬜ Not started |
-| M14 | Performance & Polish | 🔄 In progress |
+| M14 | Performance & Polish | ✅ Done |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -271,4 +271,4 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-046 | tasks/TASK-046-backend-query-optimisation.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-16 — M14 (Performance & Polish) complete. TASK-044/045/046 done. Migration 0014 (date indexes) needs running. M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-04-18 — M14 (Performance & Polish) ✅ Done. TASK-044/045/046 done. Migration 0014 (date indexes) needs running on prod. M13 (LLM Tool Use) still deferred.*
