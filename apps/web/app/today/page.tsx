@@ -188,9 +188,14 @@ export default async function TodayPage() {
       <p className="text-sm text-muted-foreground mb-6">{dateSubtitle}</p>
 
       {/* Section 1: 7-day rolling stats */}
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-2 gap-3 mb-2">
         <StatCard label="Avg calories / day" value={avgCaloriesDisplay} />
         <StatCard label="Sessions (7d)" value={String(rolling_7d.sessions)} />
+      </div>
+      <div className="flex justify-end mb-3">
+        <Link href="/insights" className="text-xs text-muted-foreground hover:text-foreground">
+          View Insights →
+        </Link>
       </div>
 
       {/* Section 2: Health glance */}

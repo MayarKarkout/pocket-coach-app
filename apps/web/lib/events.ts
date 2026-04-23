@@ -41,6 +41,8 @@ export interface MealLog {
   calories: number | null;
   calories_estimated: boolean;
   occurred_at: string | null;
+  meal_definition_id: number | null;
+  portion_multiplier: string | null;
   created_at: string;
 }
 

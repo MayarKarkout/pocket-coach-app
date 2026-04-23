@@ -1,16 +1,17 @@
 import logging
 import re
 from datetime import date as Date, datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import Session as DBSession, selectinload
 
 from app.auth import get_current_user, get_db
 from app.db import SessionLocal
 from app.llm import ChatMessage, get_llm
-from app.models import MealLog, User
+from app.models import MealDefinition, MealIngredient, MealLog, User
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ class MealLogOut(BaseModel):
     calories: int | None
     calories_estimated: bool
     occurred_at: datetime | None
+    meal_definition_id: int | None
+    portion_multiplier: Decimal | None
     created_at: datetime
 
 
@@ -36,6 +39,8 @@ class CreateMealBody(BaseModel):
     notes: str | None = None
     calories: int | None = None
     occurred_at: datetime | None = None
+    meal_definition_id: int | None = None
+    portion_multiplier: Decimal | None = None
 
 
 class UpdateMealBody(BaseModel):
@@ -44,6 +49,8 @@ class UpdateMealBody(BaseModel):
     notes: str | None = None
     calories: int | None = None
     occurred_at: datetime | None = None
+    meal_definition_id: int | None = None
+    portion_multiplier: Decimal | None = None
 
 
 class PeriodMeals(BaseModel):
@@ -160,6 +167,20 @@ def list_meals(
     return db.execute(stmt).scalars().all()
 
 
+def _definition_kcal(db: DBSession, definition_id: int) -> Decimal:
+    defn = db.execute(
+        select(MealDefinition)
+        .where(MealDefinition.id == definition_id)
+        .options(selectinload(MealDefinition.ingredients).selectinload(MealIngredient.food_item))
+    ).scalar_one_or_none()
+    if defn is None:
+        raise HTTPException(status_code=400, detail="Unknown meal_definition_id")
+    total = Decimal(0)
+    for ing in defn.ingredients:
+        total += ing.food_item.kcal_per_100g * ing.quantity_grams / Decimal(100)
+    return total
+
+
 @router.post("", response_model=MealLogOut, status_code=201)
 async def create_meal(
     body: CreateMealBody,
@@ -167,19 +188,31 @@ async def create_meal(
     db: DBSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    calories: int | None = body.calories
+    calories_estimated = False
+    from_definition = (
+        body.meal_definition_id is not None and body.portion_multiplier is not None
+    )
+
+    if from_definition and calories is None:
+        base = _definition_kcal(db, body.meal_definition_id)
+        calories = int((base * body.portion_multiplier).quantize(Decimal("1")))
+
     obj = MealLog(
         date=body.date,
         meal_type=body.meal_type,
         notes=body.notes,
-        calories=body.calories,
-        calories_estimated=False,
+        calories=calories,
+        calories_estimated=calories_estimated,
         occurred_at=body.occurred_at,
+        meal_definition_id=body.meal_definition_id,
+        portion_multiplier=body.portion_multiplier,
     )
     db.add(obj)
     db.commit()
     db.refresh(obj)
 
-    if body.calories is None:
+    if obj.calories is None and not from_definition:
         background_tasks.add_task(_estimate_calories, obj.id, obj.meal_type, obj.notes)
 
     return obj
@@ -215,6 +248,10 @@ def update_meal(
         obj.calories_estimated = False
     if "occurred_at" in fields:
         obj.occurred_at = body.occurred_at
+    if "meal_definition_id" in fields:
+        obj.meal_definition_id = body.meal_definition_id
+    if "portion_multiplier" in fields:
+        obj.portion_multiplier = body.portion_multiplier
     db.commit()
     db.refresh(obj)
     return obj

@@ -11,6 +11,8 @@ from app.football import router as football_router
 from app.activity import router as activity_router
 from app.wellbeing import router as wellbeing_router
 from app.meals import router as meals_router
+from app.food_items import router as food_items_router
+from app.meal_definitions import router as meal_definitions_router
 from app.today import router as today_router
 from app.briefing import router as briefing_router
 from app.gadgetbridge import router as gadgetbridge_router
@@ -45,6 +47,8 @@ app.include_router(football_router, prefix="/football")
 app.include_router(activity_router, prefix="/activity")
 app.include_router(wellbeing_router, prefix="/wellbeing")
 app.include_router(meals_router, prefix="/meals")
+app.include_router(food_items_router, prefix="/food-items")
+app.include_router(meal_definitions_router, prefix="/meal-definitions")
 app.include_router(today_router)
 app.include_router(briefing_router)
 app.include_router(gadgetbridge_router)

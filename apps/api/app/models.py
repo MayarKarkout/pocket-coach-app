@@ -176,9 +176,68 @@ class MealLog(Base):
     calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
     calories_estimated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    meal_definition_id: Mapped[int | None] = mapped_column(
+        ForeignKey("meal_definitions.id", ondelete="SET NULL"), nullable=True
+    )
+    portion_multiplier: Mapped[Decimal | None] = mapped_column(Numeric(6, 3), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    meal_definition: Mapped["MealDefinition | None"] = relationship(
+        foreign_keys=[meal_definition_id]
+    )
+
+
+class FoodItem(Base):
+    __tablename__ = "food_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    kcal_per_100g: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    protein_per_100g: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    carbs_per_100g: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    fat_per_100g: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False)  # "open_food_facts" | "manual"
+    off_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class MealDefinition(Base):
+    __tablename__ = "meal_definitions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    ingredients: Mapped[list["MealIngredient"]] = relationship(
+        back_populates="meal_definition",
+        cascade="all, delete-orphan",
+        order_by="MealIngredient.position",
+    )
+
+
+class MealIngredient(Base):
+    __tablename__ = "meal_ingredients"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    meal_definition_id: Mapped[int] = mapped_column(
+        ForeignKey("meal_definitions.id", ondelete="CASCADE"), nullable=False
+    )
+    food_item_id: Mapped[int] = mapped_column(ForeignKey("food_items.id"), nullable=False)
+    quantity_grams: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    meal_definition: Mapped["MealDefinition"] = relationship(back_populates="ingredients")
+    food_item: Mapped["FoodItem"] = relationship()
 
 
 class FootballSession(Base):

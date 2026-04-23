@@ -8,7 +8,7 @@ const LOG_TYPES = [
   { label: "Football", href: "/log/football/new" },
   { label: "Activity", href: "/log/activity/new" },
   { label: "Wellbeing", href: "/log/wellbeing/new" },
-  { label: "Meal", href: "/log/meals/new" },
+  { label: "Meal", href: "/food/new" },
 ];
 
 export function AddMenu() {

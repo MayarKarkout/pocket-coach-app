@@ -1,7 +1,9 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
-**M14: Performance & Polish** — ✅ DONE
+**M16: Macro Intelligence** — ⬜ Up next
+
+**M15: Food Library + Meal Builder** — ✅ Done
 
 ## Milestone Tracker
 | Milestone | Description | Status |
@@ -20,6 +22,9 @@
 | M12 | Health Data UI + LLM Integration | ✅ Done |
 | M13 | LLM Tool Use (deferred) | ⬜ Not started |
 | M14 | Performance & Polish | ✅ Done |
+| M15 | Food Library + Meal Builder | ✅ Done |
+| M16 | Macro Intelligence (Coach + Insights) | ⬜ Up next |
+| M17 | Coach Intelligence (Briefing Quality) | ⬜ Not started |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -159,6 +164,48 @@
 | Today view: `+` button + tappable event cards | Add or edit any log type directly from Today |
 | Avg wellbeing stat removed from Today | Severity average is misleading without more context |
 
+## Recent Decisions (M15 — Food Library + Meal Builder)
+| Decision | Detail |
+|---|---|
+| Ingredients | Structured: food_item (from food DB) + quantity in grams. Notes on definitions are descriptive only, not parsed for nutrition. |
+| Units | Grams only in M15. ml/pieces deferred. |
+| food_items schema | `id`, `name`, `kcal_per_100g` (required), `protein_per_100g`, `carbs_per_100g`, `fat_per_100g` (nullable), `source` ("open_food_facts"\|"manual"), `off_id` (nullable). Macros stored now (free from OFF) to avoid backfill in M16. |
+| meal_definitions | Named recipes: `id`, `name`, `notes` (nullable), `created_at`, `updated_at`. Ingredient-less definitions allowed (name + manual kcal). Kcal total calculated on read, not stored. |
+| meal_ingredients | `meal_definition_id` FK, `food_item_id` FK, `quantity_grams` (Decimal). |
+| meal_logs updates | Add `meal_definition_id` (nullable FK, SET NULL on delete) + `portion_multiplier` (nullable Decimal). When both set: calories = definition kcal × multiplier, `calories_estimated=False`, AI estimation skipped. |
+| Snapshot pattern | Editing a definition never updates past meal_logs. Same rule as workouts vs. plans. |
+| Portions UX | Preset buttons (Whole / ½ / ⅓ / ¼) populate a number input. Custom decimal values supported. Live kcal preview shown. |
+| Save as definition | Checkbox in Add Meal form. When checked: ingredient section expands inline (same typeahead as library). Definition name defaults to meal_type. Ingredient-less save allowed. |
+| Free-text path | Unchanged — meal_type + notes + AI calorie estimation. No regression. |
+| Macros on meal_logs | Deferred to M16. food_items stores macros; meal_logs does not get protein/carbs/fat columns yet. |
+| Nav | 4 tabs: Today / Workouts / Log / Food. Insights removed from nav; "View Insights →" button added to Today stats section. Insights routes unchanged. |
+| Log tab | Food entries remain in combined feed. Show/hide food checkbox deferred to a later milestone. |
+| Food tab | `/food` — date-navigable meal feed, daily calorie total, "+ Add Meal", "Meal Library →" link. Empty state says "Nothing logged yet" (not 0 kcal). |
+| Editability | Everything editable: meal logs (including definition link + portion), meal definitions, ingredients, food items. |
+| Food prompts | Deferred to a future milestone (M18+): proactive prompts to log food based on last meal time + time of day. |
+| Open Food Facts | Search → upsert into local `food_items` by `off_id`. Graceful fallback to local search if OFF unreachable. |
+
+## Recent Decisions (M15–M17 Planning)
+| Decision | Detail |
+|---|---|
+| M15 scope | Food Library + Meal Builder: `food_items` table (kcal + macros per 100g), `meal_definitions` (named recipes with ingredients), updated `meal_logs` (quick-add from recent/frequent definitions + portion multiplier, free-text fallback preserved), macro totals on log entries + daily summary |
+| M16 scope | Macro Intelligence: daily macro targets (configurable in settings), Insights macro breakdown charts, coach briefing context includes macro actuals vs targets + meal timing |
+| M17 scope | Coach Intelligence: time-aware context (current time of day, don't comment on incomplete-day metrics), data priority guidance (RHR/SpO2 = background, only flag if abnormal), missing data = unknown not zero |
+| Food DB | Open Food Facts (free, open-source, ~3M products, international) — search on ingredient add, cache result in local `food_items` table; no lock-in, works offline after first lookup |
+| AI estimation | Kept as fallback for free-text meal entries where no meal definition is selected |
+| Milestone split rationale | M15 is DB/migration-heavy; M16 adds coach + insights layer on top; M17 is prompt/context engineering only — can ship independently |
+
+## What's Done (M15 — Food Library + Meal Builder)
+- `food_items` table + migration 0015 (kcal + optional macros per 100g, `source`, unique `off_id`)
+- Open Food Facts search integration: `/food-items/search` typeahead, OFF hits auto-upserted by off_id, graceful fallback to local search if OFF unreachable
+- `meal_definitions` + `meal_ingredients` tables; ingredient rows = food_item × grams; kcal totals computed on read; snapshot pattern (editing a definition never updates past logs)
+- `meal_logs` gains `meal_definition_id` + `portion_multiplier`; when both present, kcal = definition × multiplier, AI estimation skipped
+- Nav refactored → Today / Workouts / Log / Food (Insights moved to a "View Insights →" link on Today stats)
+- `/food` tab: date-navigable meal feed, daily kcal total, `+ Add Meal` → `/food/new`, `Meal Library →` link
+- `/food/library`: list / new / edit meal definitions with ingredient typeahead, live kcal preview
+- `/food/new` (Add Meal): meal-definition typeahead, portion presets (Whole/½/⅓/¼) + custom decimal, live kcal preview, "Save as definition" checkbox expands inline ingredient section; free-text path preserved for AI estimation
+- Food typeahead supports adding a custom food inline when no search matches (name + kcal/100g)
+
 ## Recent Decisions (M14 — Performance & Polish)
 | Decision | Detail |
 |---|---|
@@ -269,6 +316,12 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-044 | tasks/TASK-044-frontend-loading-states.md | ✅ Done |
 | TASK-045 | tasks/TASK-045-log-zoom-fix.md | ✅ Done |
 | TASK-046 | tasks/TASK-046-backend-query-optimisation.md | ✅ Done |
+| TASK-047 | tasks/TASK-047-food-items-backend.md | ✅ Done |
+| TASK-048 | tasks/TASK-048-meal-definitions-backend.md | ✅ Done |
+| TASK-049 | tasks/TASK-049-meallog-backend-updates.md | ✅ Done |
+| TASK-050 | tasks/TASK-050-nav-food-tab.md | ✅ Done |
+| TASK-051 | tasks/TASK-051-meal-library-ui.md | ✅ Done |
+| TASK-052 | tasks/TASK-052-add-meal-quickadd-ui.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-18 — M14 (Performance & Polish) ✅ Done. TASK-044/045/046 done. Migration 0014 (date indexes) needs running on prod. M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-04-23 — M15 (Food Library + Meal Builder) shipped. Next: M16 (Macro Intelligence). M13 (LLM Tool Use) still deferred.*
