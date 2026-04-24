@@ -33,13 +33,11 @@ export default function MealLibraryPage() {
 
   return (
     <main className="mx-auto max-w-lg px-4 py-6">
+      <Link href="/food" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block">
+        ← Food
+      </Link>
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <Link href="/food" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to Food
-          </Link>
-          <h1 className="text-2xl font-bold mt-1">Meal Library</h1>
-        </div>
+        <h1 className="text-2xl font-bold">Meal Library</h1>
         <Link
           href="/food/library/new"
           className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
