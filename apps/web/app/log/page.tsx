@@ -10,18 +10,18 @@ import type { FootballSession, ActivitySession, WellbeingLog, MealLog, EventItem
 
 // --- Date helpers ---
 
-function toISO(d: Date) {
-  return d.toISOString().slice(0, 10);
+function toLocalISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function today() {
-  return toISO(new Date());
+  return toLocalISO(new Date());
 }
 
 function addDays(iso: string, n: number) {
   const d = new Date(iso + "T00:00:00");
   d.setDate(d.getDate() + n);
-  return toISO(d);
+  return toLocalISO(d);
 }
 
 function formatNavDate(iso: string) {

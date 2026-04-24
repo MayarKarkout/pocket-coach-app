@@ -30,7 +30,9 @@ function formatDuration(start: string, end: string): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
-function toISO(d: Date) { return d.toISOString().slice(0, 10); }
+function toISO(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
