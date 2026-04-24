@@ -36,13 +36,14 @@ export function FoodTypeahead({ onSelect, placeholder }: Props) {
         });
         if (!res.ok) return;
         const data: FoodItem[] = await res.json();
+        if (controller.signal.aborted) return;
         setResults(data);
       } catch {
-        /* aborted */
+        /* aborted or network error */
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
-    }, 250);
+    }, 300);
     return () => {
       clearTimeout(handle);
       controller.abort();
@@ -54,10 +55,7 @@ export function FoodTypeahead({ onSelect, placeholder }: Props) {
     const res = await apiFetch("/food-items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: manualName,
-        kcal_per_100g: Number(manualKcal),
-      }),
+      body: JSON.stringify({ name: manualName, kcal_per_100g: Number(manualKcal) }),
     });
     if (!res.ok) return;
     const item: FoodItem = await res.json();
@@ -69,73 +67,83 @@ export function FoodTypeahead({ onSelect, placeholder }: Props) {
     setOpen(false);
   }
 
+  const showDropdown = open && (query.trim() || manualMode);
+
   return (
     <div className="relative">
       <input
         type="text"
         value={query}
         placeholder={placeholder ?? "Search foods…"}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
       />
-      {open && (query.trim() || manualMode) && (
+      {showDropdown && (
         <div className="absolute top-full mt-1 left-0 right-0 z-20 rounded-xl border border-border bg-background shadow-lg max-h-72 overflow-y-auto">
           {manualMode ? (
             <div className="p-3 flex flex-col gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Add food manually</p>
               <input
                 type="text"
                 placeholder="Food name"
                 value={manualName}
                 onChange={(e) => setManualName(e.target.value)}
-                className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
               />
               <input
                 type="number"
-                placeholder="kcal / 100g"
+                placeholder="kcal per 100g"
                 min={0}
                 value={manualKcal}
                 onChange={(e) => setManualKcal(e.target.value)}
-                className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={saveManual}
-                  className="rounded-lg bg-primary text-primary-foreground text-sm font-medium px-3 py-1.5"
+                  disabled={!manualName || !manualKcal}
+                  className="flex-1 rounded-lg bg-primary text-primary-foreground text-sm font-medium px-3 py-1.5 disabled:opacity-50"
                 >
-                  Save
+                  Save & add
                 </button>
                 <button
                   type="button"
                   onClick={() => setManualMode(false)}
                   className="rounded-lg border border-border text-sm px-3 py-1.5"
                 >
-                  Cancel
+                  Back
                 </button>
               </div>
             </div>
           ) : (
             <>
+              {/* Always-visible manual add at top */}
+              <button
+                type="button"
+                onClick={() => setManualMode(true)}
+                className="w-full text-left px-3 py-2.5 text-sm font-medium text-primary hover:bg-accent border-b border-border"
+              >
+                + Add &ldquo;{query}&rdquo; manually
+              </button>
+
               {loading && (
-                <div className="p-3 text-xs text-muted-foreground">Searching…</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
               )}
+
               {!loading && results.length === 0 && (
-                <div className="p-3 text-xs text-muted-foreground">No matches.</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  No matches in database or Open Food Facts.
+                </div>
               )}
+
               {results.map((item) => (
                 <button
                   type="button"
                   key={item.id}
-                  onClick={() => {
-                    onSelect(item);
-                    setQuery("");
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-accent border-b border-border last:border-b-0"
+                  onClick={() => { onSelect(item); setQuery(""); setOpen(false); }}
+                  className="w-full text-left px-3 py-2 hover:bg-accent border-t border-border first:border-t-0"
                 >
                   <div className="text-sm font-medium truncate">{item.name}</div>
                   <div className="text-xs text-muted-foreground">
@@ -144,13 +152,6 @@ export function FoodTypeahead({ onSelect, placeholder }: Props) {
                   </div>
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() => setManualMode(true)}
-                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-accent border-t border-border"
-              >
-                + Add custom food
-              </button>
             </>
           )}
         </div>
