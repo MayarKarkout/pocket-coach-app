@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-OFF_SEARCH_URL = "https://world.openfoodfacts.org/cgi/search.pl"
+OFF_SEARCH_URL = "https://search.openfoodfacts.org/search"
 OFF_MAX_RESULTS = 10
-OFF_TIMEOUT_SECONDS = 4.0
+OFF_TIMEOUT_SECONDS = 6.0
+OFF_USER_AGENT = "PocketCoach/1.0 (personal fitness tracker)"
 
 
 class FoodItemOut(BaseModel):
@@ -48,19 +49,21 @@ class UpdateFoodItemBody(BaseModel):
     fat_per_100g: Decimal | None = None
 
 
-def _parse_off_product(product: dict) -> dict | None:
-    off_id = product.get("code")
-    name = product.get("product_name") or product.get("product_name_en") or product.get("generic_name")
-    nutriments = product.get("nutriments") or {}
-    kcal = nutriments.get("energy-kcal_100g")
+def _parse_off_hit(hit: dict) -> dict | None:
+    off_id = hit.get("code")
+    name = hit.get("product_name") or hit.get("product_name_en") or hit.get("generic_name")
+    nutriments = hit.get("nutriments") or {}
+    kcal = nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal")
     if not off_id or not name or kcal is None:
         return None
     try:
         kcal_dec = Decimal(str(kcal)).quantize(Decimal("0.01"))
     except Exception:
         return None
-    brand = product.get("brands") or ""
-    display_name = f"{name} ({brand.split(',')[0].strip()})" if brand else name
+    raw_brand = hit.get("brands") or ""
+    brand = raw_brand[0] if isinstance(raw_brand, list) else raw_brand.split(",")[0]
+    brand = brand.strip()
+    display_name = f"{name} ({brand})" if brand else name
 
     def _opt(key: str) -> Decimal | None:
         v = nutriments.get(key)
@@ -82,21 +85,17 @@ def _parse_off_product(product: dict) -> dict | None:
 
 
 async def _search_open_food_facts(q: str) -> list[dict]:
-    params = {
-        "search_terms": q,
-        "search_simple": 1,
-        "action": "process",
-        "json": 1,
-        "page_size": OFF_MAX_RESULTS,
-        "fields": "code,product_name,product_name_en,generic_name,brands,nutriments",
-    }
-    async with httpx.AsyncClient(timeout=OFF_TIMEOUT_SECONDS) as client:
+    params = {"q": q, "page_size": OFF_MAX_RESULTS}
+    async with httpx.AsyncClient(
+        timeout=OFF_TIMEOUT_SECONDS,
+        headers={"User-Agent": OFF_USER_AGENT},
+    ) as client:
         resp = await client.get(OFF_SEARCH_URL, params=params)
         resp.raise_for_status()
         data = resp.json()
     results = []
-    for product in data.get("products", []):
-        parsed = _parse_off_product(product)
+    for hit in data.get("hits", []):
+        parsed = _parse_off_hit(hit)
         if parsed:
             results.append(parsed)
     return results
