@@ -31,6 +31,8 @@ const PRESETS: { label: string; value: number }[] = [
 
 const MEAL_CATEGORIES = ["Breakfast", "Morning snack", "Lunch", "Afternoon snack", "Dinner"];
 
+type Tab = "library" | "single" | "freetext";
+
 interface SelectedDef {
   id: number;
   name: string;
@@ -49,31 +51,25 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
 
   const [date, setDate] = useState(initialDate || todayISO());
   const [time, setTime] = useState(nowLocalTime());
-  // meal_type is always the category (Breakfast/Lunch etc)
   const [mealType, setMealType] = useState("");
-  const [notes, setNotes] = useState("");
-  const [calories, setCalories] = useState("");
+  const [tab, setTab] = useState<Tab>("library");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Library path
+  // Library tab
   const [selectedDef, setSelectedDef] = useState<SelectedDef | null>(null);
   const [multiplier, setMultiplier] = useState<string>("1");
+  const [libraryNotes, setLibraryNotes] = useState("");
 
-  // Save-as-definition (free-text path only)
+  // Single food tab
+  const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+  const [grams, setGrams] = useState("100");
+
+  // Free text tab
+  const [notes, setNotes] = useState("");
+  const [calories, setCalories] = useState("");
   const [saveAsDef, setSaveAsDef] = useState(false);
   const [defName, setDefName] = useState("");
   const [defIngredients, setDefIngredients] = useState<SaveIngredient[]>([]);
-
-  const [submitting, setSubmitting] = useState(false);
-
-  function selectDefinition(item: MealDefinitionListItem) {
-    setSelectedDef({ id: item.id, name: item.name, kcal: Number(item.total_kcal) });
-    // Don't auto-fill meal_type — user picks the category separately
-  }
-
-  function clearDefinition() {
-    setSelectedDef(null);
-    setMultiplier("1");
-  }
 
   function pickPreset(value: number) {
     setMultiplier(value === 1 ? "1" : value.toFixed(3).replace(/\.?0+$/, ""));
@@ -86,7 +82,13 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
     ]);
   }
 
-  const previewKcal = selectedDef ? selectedDef.kcal * Number(multiplier || 0) : null;
+  const previewKcalLibrary = selectedDef ? selectedDef.kcal * Number(multiplier || 0) : null;
+
+  const gramsNum = Number(grams);
+  const previewKcalSingle =
+    selectedFood && Number.isFinite(gramsNum) && gramsNum > 0
+      ? (Number(selectedFood.kcal_per_100g) * gramsNum) / 100
+      : null;
 
   const defTotalKcal = defIngredients.reduce((acc, ing) => {
     const g = Number(ing.quantity_grams);
@@ -98,39 +100,45 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
     if (submitting) return;
     setSubmitting(true);
 
-    let definitionId: number | null = selectedDef?.id ?? null;
-
-    if (!selectedDef && saveAsDef) {
-      const res = await apiFetch("/meal-definitions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: defName || mealType || "Untitled meal",
-          notes: notes || null,
-          ingredients: defIngredients.map((ing) => ({
-            food_item_id: ing.food_item_id,
-            quantity_grams: Number(ing.quantity_grams),
-          })),
-        }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        definitionId = created.id;
-      }
-    }
-
-    const multiplierNum = Number(multiplier);
+    const occurred_at = time ? combineDateTime(date, time) : null;
     const body: Record<string, unknown> = {
       date,
-      occurred_at: time ? combineDateTime(date, time) : null,
+      occurred_at,
       meal_type: mealType,
-      notes: notes || null,
-      calories: calories ? Number(calories) : null,
     };
 
-    if (definitionId !== null) {
-      body.meal_definition_id = definitionId;
-      body.portion_multiplier = Number.isFinite(multiplierNum) && multiplierNum > 0 ? multiplierNum : 1;
+    if (tab === "library" && selectedDef) {
+      const mult = Number(multiplier);
+      body.meal_definition_id = selectedDef.id;
+      body.portion_multiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
+      body.notes = libraryNotes || null;
+    } else if (tab === "single" && selectedFood) {
+      body.calories = previewKcalSingle != null ? Math.round(previewKcalSingle) : null;
+      body.notes = `${selectedFood.name} (${gramsNum}g)`;
+    } else {
+      // freetext
+      let definitionId: number | null = null;
+      if (saveAsDef) {
+        const res = await apiFetch("/meal-definitions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: defName || mealType || "Untitled meal",
+            notes: notes || null,
+            ingredients: defIngredients.map((ing) => ({
+              food_item_id: ing.food_item_id,
+              quantity_grams: Number(ing.quantity_grams),
+            })),
+          }),
+        });
+        if (res.ok) {
+          const created = await res.json();
+          definitionId = created.id;
+        }
+      }
+      body.calories = calories ? Number(calories) : null;
+      body.notes = notes || null;
+      if (definitionId !== null) body.meal_definition_id = definitionId;
     }
 
     const res = await apiFetch("/meals", {
@@ -142,6 +150,10 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
     if (res.ok) router.push(`/food?date=${date}`);
     else setSubmitting(false);
   }
+
+  const canSubmit =
+    !!mealType &&
+    (tab === "library" ? !!selectedDef : tab === "single" ? !!selectedFood : true);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -186,60 +198,129 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
         </datalist>
       </div>
 
-      {/* Library pick */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Meal <span className="text-muted-foreground font-normal">(from library, optional)</span></label>
-        {selectedDef ? (
-          <div className="rounded-xl border border-border px-3 py-2.5 flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{selectedDef.name}</p>
-              <p className="text-xs text-muted-foreground">{selectedDef.kcal.toFixed(0)} kcal · 1 portion</p>
-            </div>
-            <Button type="button" size="sm" variant="outline" onClick={clearDefinition}>✕</Button>
-          </div>
-        ) : (
-          <MealDefinitionTypeahead onSelect={selectDefinition} placeholder="Search saved meals…" />
-        )}
+      {/* Tabs */}
+      <div className="flex rounded-xl border border-border overflow-hidden">
+        {(["library", "single", "freetext"] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { library: "Library", single: "Single food", freetext: "Free text" };
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {labels[t]}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Portion (only when def selected) */}
-      {selectedDef && (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Portion</label>
-          <div className="flex gap-2">
-            {PRESETS.map((p) => (
-              <button
-                type="button"
-                key={p.label}
-                onClick={() => pickPreset(p.value)}
-                className={`flex-1 rounded-lg border px-2 py-1.5 text-sm ${
-                  Math.abs(Number(multiplier) - p.value) < 0.01
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+      {/* Library tab */}
+      {tab === "library" && (
+        <div className="flex flex-col gap-4">
+          {selectedDef ? (
+            <div className="rounded-xl border border-border px-3 py-2.5 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{selectedDef.name}</p>
+                <p className="text-xs text-muted-foreground">{selectedDef.kcal.toFixed(0)} kcal · 1 portion</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={() => { setSelectedDef(null); setMultiplier("1"); }}>✕</Button>
+            </div>
+          ) : (
+            <MealDefinitionTypeahead
+              onSelect={(item: MealDefinitionListItem) =>
+                setSelectedDef({ id: item.id, name: item.name, kcal: Number(item.total_kcal) })
+              }
+              placeholder="Search saved meals…"
+            />
+          )}
+
+          {selectedDef && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Portion</label>
+              <div className="flex gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    type="button"
+                    key={p.label}
+                    onClick={() => pickPreset(p.value)}
+                    className={`flex-1 rounded-lg border px-2 py-1.5 text-sm ${
+                      Math.abs(Number(multiplier) - p.value) < 0.01
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={multiplier}
+                onChange={(e) => setMultiplier(e.target.value)}
+                className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                placeholder="Custom multiplier"
+              />
+              {previewKcalLibrary != null && (
+                <p className="text-sm font-medium">{previewKcalLibrary.toFixed(0)} kcal</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Notes <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <textarea
+              rows={2}
+              value={libraryNotes}
+              onChange={(e) => setLibraryNotes(e.target.value)}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none"
+            />
           </div>
-          <input
-            type="number"
-            step="0.01"
-            min={0}
-            value={multiplier}
-            onChange={(e) => setMultiplier(e.target.value)}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
-            placeholder="Custom multiplier"
-          />
-          {previewKcal != null && (
-            <p className="text-sm font-medium">{previewKcal.toFixed(0)} kcal</p>
+        </div>
+      )}
+
+      {/* Single food tab */}
+      {tab === "single" && (
+        <div className="flex flex-col gap-4">
+          {selectedFood ? (
+            <div className="rounded-xl border border-border px-3 py-2.5 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{selectedFood.name}</p>
+                <p className="text-xs text-muted-foreground">{Number(selectedFood.kcal_per_100g).toFixed(0)} kcal / 100g</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={() => setSelectedFood(null)}>✕</Button>
+            </div>
+          ) : (
+            <FoodTypeahead onSelect={(item) => setSelectedFood(item)} placeholder="Search food…" />
+          )}
+
+          {selectedFood && (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Grams</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={grams}
+                  onChange={(e) => setGrams(e.target.value)}
+                  className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              {previewKcalSingle != null && (
+                <p className="text-sm font-medium">{previewKcalSingle.toFixed(0)} kcal</p>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {/* Free-text path (no def selected) */}
-      {!selectedDef && (
-        <>
+      {/* Free text tab */}
+      {tab === "freetext" && (
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">Calories <span className="text-muted-foreground font-normal">(optional — AI will estimate if blank)</span></label>
             <input
@@ -254,7 +335,7 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">Notes</label>
             <textarea
-              rows={2}
+              rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none"
@@ -262,7 +343,6 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
             />
           </div>
 
-          {/* Save as definition */}
           <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3">
             <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
               <input
@@ -323,25 +403,12 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
               </>
             )}
           </div>
-        </>
-      )}
-
-      {/* Notes when def selected */}
-      {selectedDef && (
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium">Notes <span className="text-muted-foreground font-normal">(optional)</span></label>
-          <textarea
-            rows={2}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none"
-          />
         </div>
       )}
 
       <button
         type="submit"
-        disabled={submitting || !mealType}
+        disabled={submitting || !canSubmit}
         className="bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
       >
         {submitting ? "Saving…" : "Log meal"}
