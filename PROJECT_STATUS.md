@@ -167,6 +167,9 @@
 ## Recent Decisions (M15 — Food Library + Meal Builder)
 | Decision | Detail |
 |---|---|
+| Add Meal form: three tabs | Library / Single food / Free text — replaces stacked conditional UI |
+| Single food tab | Pick one food item from OFF/library, enter grams, logs with computed kcal and `"{name} ({grams}g)"` as notes. No definition needed. |
+| AI-adjusted kcal for library + notes | Base kcal stored immediately; background AI task gets full ingredient list + base kcal + notes and overwrites with adjusted estimate. `calories_estimated=True` on the log entry. |
 | Ingredients | Structured: food_item (from food DB) + quantity in grams. Notes on definitions are descriptive only, not parsed for nutrition. |
 | Units | Grams only in M15. ml/pieces deferred. |
 | food_items schema | `id`, `name`, `kcal_per_100g` (required), `protein_per_100g`, `carbs_per_100g`, `fat_per_100g` (nullable), `source` ("open_food_facts"\|"manual"), `off_id` (nullable). Macros stored now (free from OFF) to avoid backfill in M16. |
@@ -203,8 +206,9 @@
 - Nav refactored → Today / Workouts / Log / Food (Insights moved to a "View Insights →" link on Today stats)
 - `/food` tab: date-navigable meal feed, daily kcal total, `+ Add Meal` → `/food/new`, `Meal Library →` link
 - `/food/library`: list / new / edit meal definitions with ingredient typeahead, live kcal preview
-- `/food/new` (Add Meal): meal-definition typeahead, portion presets (Whole/½/⅓/¼) + custom decimal, live kcal preview, "Save as definition" checkbox expands inline ingredient section; free-text path preserved for AI estimation
+- `/food/new` (Add Meal): three tabs — **Library** (definition typeahead + portion presets Whole/½/⅓/¼ + custom decimal + live kcal preview), **Single food** (pick one food item, enter grams, logs with computed kcal + name in notes), **Free text** (notes + optional calories + AI estimation + save-as-definition)
 - Food typeahead supports adding a custom food inline when no search matches (name + kcal/100g)
+- AI-adjusted kcal: when a library meal is logged with notes (e.g. "2 extra eggs"), base kcal is stored immediately then a background AI task re-estimates incorporating the modification
 
 ## Recent Decisions (M14 — Performance & Polish)
 | Decision | Detail |
