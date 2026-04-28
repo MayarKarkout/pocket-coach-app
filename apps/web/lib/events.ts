@@ -43,6 +43,9 @@ export interface MealLog {
   occurred_at: string | null;
   meal_definition_id: number | null;
   portion_multiplier: string | null;
+  protein_g: string | null;
+  carbs_g: string | null;
+  fat_g: string | null;
   created_at: string;
 }
 

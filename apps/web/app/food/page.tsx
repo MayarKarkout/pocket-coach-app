@@ -114,6 +114,11 @@ function FoodPageInner() {
   const anyEstimated = meals.some((m) => m.calories_estimated);
   const isToday = selectedDate === today();
 
+  const hasMacros = meals.some((m) => m.protein_g != null || m.carbs_g != null || m.fat_g != null);
+  const totalProtein = meals.reduce((acc, m) => acc + (m.protein_g != null ? Number(m.protein_g) : 0), 0);
+  const totalCarbs = meals.reduce((acc, m) => acc + (m.carbs_g != null ? Number(m.carbs_g) : 0), 0);
+  const totalFat = meals.reduce((acc, m) => acc + (m.fat_g != null ? Number(m.fat_g) : 0), 0);
+
   return (
     <main className="mx-auto max-w-lg px-4 py-6">
       <h1 className="text-2xl font-bold mb-4">Food</h1>
@@ -181,8 +186,13 @@ function FoodPageInner() {
               {totalKcal.toLocaleString()}
               {anyEstimated && " ~"} kcal
             </p>
+            {hasMacros && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.round(totalProtein)}g P · {Math.round(totalCarbs)}g C · {Math.round(totalFat)}g F
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
-              {meals.length} meal{meals.length === 1 ? "" : "s"} today
+              {meals.length} meal{meals.length === 1 ? "" : "s"}
             </p>
           </div>
           <div className="flex flex-col gap-2">

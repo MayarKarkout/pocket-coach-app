@@ -115,6 +115,8 @@ export function AddMealForm({ initialDate }: { initialDate: string }) {
     } else if (tab === "single" && selectedFood) {
       body.calories = previewKcalSingle != null ? Math.round(previewKcalSingle) : null;
       body.notes = `${selectedFood.name} (${gramsNum}g)`;
+      body.food_item_id = selectedFood.id;
+      body.food_item_grams = gramsNum;
     } else {
       // freetext
       let definitionId: number | null = null;

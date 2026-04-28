@@ -74,23 +74,42 @@ def _fmt_granular(db: DBSession, today: Date) -> list[str]:
             day_lines.append(f"  Wellbeing ({wb.log_type}{part}): severity {wb.severity}/10{note}")
 
         meals = db.execute(
-            select(MealLog).where(MealLog.date == d)
+            select(MealLog).where(MealLog.date == d).order_by(MealLog.occurred_at.nulls_last(), MealLog.created_at)
         ).scalars().all()
         if meals:
-            meal_parts = []
             total_kcal = 0
+            total_protein = total_carbs = total_fat = 0.0
+            has_macros = False
             for m in meals:
+                time_str = m.occurred_at.strftime("%H:%M") if m.occurred_at else "?"
+                parts: list[str] = [f"[{time_str}] {m.meal_type}"]
                 if m.calories:
-                    kcal_val = f"~{m.calories}kcal (estimated)" if m.calories_estimated else f"{m.calories}kcal"
-                    kcal = f" {kcal_val}"
-                else:
-                    kcal = ""
-                note = f": {m.notes}" if m.notes else ""
-                meal_parts.append(f"{m.meal_type}{kcal}{note}")
-                if m.calories:
+                    kcal_tag = "~" if m.calories_estimated else ""
+                    parts.append(f"{kcal_tag}{m.calories}kcal")
                     total_kcal += m.calories
-            kcal_str = f" (total: {total_kcal}kcal)" if total_kcal else ""
-            day_lines.append(f"  Meals: {', '.join(meal_parts)}{kcal_str}")
+                macro_parts: list[str] = []
+                if m.protein_g is not None:
+                    macro_parts.append(f"P{float(m.protein_g):.0f}g")
+                    total_protein += float(m.protein_g)
+                    has_macros = True
+                if m.carbs_g is not None:
+                    macro_parts.append(f"C{float(m.carbs_g):.0f}g")
+                    total_carbs += float(m.carbs_g)
+                if m.fat_g is not None:
+                    macro_parts.append(f"F{float(m.fat_g):.0f}g")
+                    total_fat += float(m.fat_g)
+                if macro_parts:
+                    parts.append(" ".join(macro_parts))
+                if m.notes:
+                    parts.append(f"({m.notes})")
+                day_lines.append(f"  Meal: {' · '.join(parts)}")
+            summary_parts: list[str] = []
+            if total_kcal:
+                summary_parts.append(f"{total_kcal}kcal")
+            if has_macros:
+                summary_parts.append(f"P{total_protein:.0f}g C{total_carbs:.0f}g F{total_fat:.0f}g")
+            if summary_parts:
+                day_lines.append(f"  → Daily food total: {' · '.join(summary_parts)}")
 
         health = db.scalar(
             select(DailyHealthSnapshot).where(DailyHealthSnapshot.date == d)

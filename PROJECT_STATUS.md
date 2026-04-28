@@ -1,7 +1,7 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
-**M16: Macro Intelligence** — ⬜ Up next
+**M16: Macro Intelligence** — ✅ Done
 
 **M15: Food Library + Meal Builder** — ✅ Done
 
@@ -23,7 +23,7 @@
 | M13 | LLM Tool Use (deferred) | ⬜ Not started |
 | M14 | Performance & Polish | ✅ Done |
 | M15 | Food Library + Meal Builder | ✅ Done |
-| M16 | Macro Intelligence (Coach + Insights) | ⬜ Up next |
+| M16 | Macro Intelligence (Coach + Insights) | ✅ Done |
 | M17 | Coach Intelligence (Briefing Quality) | ⬜ Not started |
 
 ## What's Done (M1–M3)
@@ -164,6 +164,14 @@
 | Today view: `+` button + tappable event cards | Add or edit any log type directly from Today |
 | Avg wellbeing stat removed from Today | Severity average is misleading without more context |
 
+## What's Done (M16 — Macro Intelligence)
+- Migration 0016: `protein_g`, `carbs_g`, `fat_g` (Numeric 6,1) added to `meal_logs`
+- Macro computation on save: library meals → ingredients × macros per 100g (exact, synchronous); single food → food_item × grams (exact, synchronous, frontend passes `food_item_id` + `food_item_grams`); free text → AI background task now returns JSON with P/C/F + kcal
+- Library meals with notes: AI adjusts all 4 values (kcal + macros) using base macros as context
+- Food tab daily summary card shows `Xg P · Xg C · Xg F` when any meal has macro data
+- Insights: new stacked bar chart (protein / carbs / fat per day) below the kcal chart in the Meals section
+- Briefing context: meals now listed per-entry with time (`[HH:MM]`), kcal, and per-macro breakdown; daily macro totals appended
+
 ## Recent Decisions (M15 — Food Library + Meal Builder)
 | Decision | Detail |
 |---|---|
@@ -280,6 +288,16 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | Summary schema — wellbeing | `log_count`, `avg_severity`, `body_parts_affected[]`, `log_types[]` |
 | Summary schema — meals | `log_count`, `avg_daily_calories`, `days_with_logs` |
 
+## Recent Decisions (M16 — Macro Intelligence)
+| Decision | Detail |
+|---|---|
+| No macro targets | Track actuals only — no daily targets, no settings page in M16 |
+| Macro sources | Library meals: computed from ingredients × macros per 100g (exact, synchronous). Single food: item macros × grams (exact, synchronous). Free text: extend existing AI background task to return P/C/F alongside kcal |
+| meal_logs macro columns | Add `protein_g`, `carbs_g`, `fat_g` (nullable Decimal) — migration required |
+| Food tab macro display | Daily macro totals alongside kcal (e.g. "2100 kcal · 180g P · 220g C · 60g F") |
+| Insights macro chart | Stacked bar (P/C/F per day) in food section, using existing time window selector |
+| Briefing context | Add meal times (`occurred_at`) + daily macro actuals to LLM context |
+
 ## Open Decisions
 - **Persistent Cloudflare tunnel** — currently using a temporary trycloudflare.com URL (changes on restart). Needs a domain (~$10/yr) + named tunnel + cloudflared as systemd service for stability. See `docs/cloudflare-tunnel.md`.
 
@@ -326,6 +344,10 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-050 | tasks/TASK-050-nav-food-tab.md | ✅ Done |
 | TASK-051 | tasks/TASK-051-meal-library-ui.md | ✅ Done |
 | TASK-052 | tasks/TASK-052-add-meal-quickadd-ui.md | ✅ Done |
+| TASK-053 | tasks/TASK-053-macro-columns-backend.md | ✅ Done |
+| TASK-054 | tasks/TASK-054-food-tab-macros.md | ✅ Done |
+| TASK-055 | tasks/TASK-055-insights-macro-chart.md | ✅ Done |
+| TASK-056 | tasks/TASK-056-briefing-meal-context.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-23 — M15 (Food Library + Meal Builder) shipped. Next: M16 (Macro Intelligence). M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-04-28 — M16 (Macro Intelligence) shipped. Next: M17 (Coach Intelligence). M13 (LLM Tool Use) still deferred.*

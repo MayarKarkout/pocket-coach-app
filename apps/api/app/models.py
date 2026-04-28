@@ -180,6 +180,9 @@ class MealLog(Base):
         ForeignKey("meal_definitions.id", ondelete="SET NULL"), nullable=True
     )
     portion_multiplier: Mapped[Decimal | None] = mapped_column(Numeric(6, 3), nullable=True)
+    protein_g: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
+    carbs_g: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
+    fat_g: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
