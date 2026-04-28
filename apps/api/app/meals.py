@@ -167,7 +167,14 @@ def list_meals(
     return db.execute(stmt).scalars().all()
 
 
-def _definition_kcal(db: DBSession, definition_id: int) -> Decimal:
+class _DefInfo:
+    def __init__(self, name: str, base_kcal: Decimal, ingredient_summary: str) -> None:
+        self.name = name
+        self.base_kcal = base_kcal
+        self.ingredient_summary = ingredient_summary
+
+
+def _load_definition(db: DBSession, definition_id: int) -> _DefInfo:
     defn = db.execute(
         select(MealDefinition)
         .where(MealDefinition.id == definition_id)
@@ -176,9 +183,52 @@ def _definition_kcal(db: DBSession, definition_id: int) -> Decimal:
     if defn is None:
         raise HTTPException(status_code=400, detail="Unknown meal_definition_id")
     total = Decimal(0)
+    parts: list[str] = []
     for ing in defn.ingredients:
         total += ing.food_item.kcal_per_100g * ing.quantity_grams / Decimal(100)
-    return total
+        parts.append(f"{ing.food_item.name} {ing.quantity_grams}g")
+    return _DefInfo(
+        name=defn.name,
+        base_kcal=total,
+        ingredient_summary=", ".join(parts) if parts else "no ingredients listed",
+    )
+
+
+async def _estimate_calories_adjusted(
+    meal_id: int,
+    meal_name: str,
+    ingredient_summary: str,
+    base_kcal: int,
+    notes: str,
+) -> None:
+    prompt = (
+        f"Base meal: {meal_name} ({ingredient_summary}) = {base_kcal} kcal. "
+        f"Modification: {notes}. "
+        "Estimate the adjusted total calorie count and reply with ONLY a number."
+    )
+    llm = get_llm()
+    try:
+        result = await llm.complete(
+            system="You are a nutrition assistant.",
+            messages=[ChatMessage(role="user", content=prompt)],
+            model="gemini-3-flash-preview",
+        )
+    except Exception:
+        logger.exception("Adjusted calorie estimation LLM call failed for meal %d", meal_id)
+        return
+
+    estimated = _parse_calorie_response(result)
+    if estimated is None:
+        logger.warning("Adjusted estimation for meal %d: could not parse response: %r", meal_id, result)
+        return
+
+    with SessionLocal() as db:
+        obj = db.get(MealLog, meal_id)
+        if obj is not None:
+            obj.calories = estimated
+            obj.calories_estimated = True
+            db.commit()
+            logger.info("Adjusted calorie estimation for meal %d: %d kcal", meal_id, estimated)
 
 
 @router.post("", response_model=MealLogOut, status_code=201)
@@ -194,9 +244,10 @@ async def create_meal(
         body.meal_definition_id is not None and body.portion_multiplier is not None
     )
 
+    def_info: _DefInfo | None = None
     if from_definition and calories is None:
-        base = _definition_kcal(db, body.meal_definition_id)
-        calories = int((base * body.portion_multiplier).quantize(Decimal("1")))
+        def_info = _load_definition(db, body.meal_definition_id)
+        calories = int((def_info.base_kcal * body.portion_multiplier).quantize(Decimal("1")))
 
     obj = MealLog(
         date=body.date,
@@ -212,7 +263,16 @@ async def create_meal(
     db.commit()
     db.refresh(obj)
 
-    if obj.calories is None and not from_definition:
+    if from_definition and def_info is not None and body.notes:
+        background_tasks.add_task(
+            _estimate_calories_adjusted,
+            obj.id,
+            def_info.name,
+            def_info.ingredient_summary,
+            calories,
+            body.notes,
+        )
+    elif obj.calories is None and not from_definition:
         background_tasks.add_task(_estimate_calories, obj.id, obj.meal_type, obj.notes)
 
     return obj
