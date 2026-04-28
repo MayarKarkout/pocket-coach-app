@@ -6,33 +6,14 @@ import { PageSpinner } from "@/components/ui/page-spinner";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { addDays, formatNavDate, formatTime, todayISO } from "@/lib/dates";
 import type { FootballSession, ActivitySession, WellbeingLog, MealLog, EventItem } from "@/lib/events";
 
-// --- Date helpers ---
-
-function toLocalISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// --- Card helpers ---
 
 function today() {
-  return toLocalISO(new Date());
+  return todayISO();
 }
-
-function addDays(iso: string, n: number) {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return toLocalISO(d);
-}
-
-function formatNavDate(iso: string) {
-  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-// --- Card helpers ---
 
 function formatDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString(undefined, {
@@ -40,10 +21,6 @@ function formatDate(iso: string): string {
     month: "short",
     day: "numeric",
   });
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function DeleteButton({ onDelete }: { onDelete: () => void }) {

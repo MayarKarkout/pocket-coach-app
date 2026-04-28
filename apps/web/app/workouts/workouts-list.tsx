@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { formatTime } from "@/lib/dates";
 import type { WorkoutSummary } from "@/lib/workouts";
 
 function formatDate(iso: string): string {
@@ -12,13 +13,6 @@ function formatDate(iso: string): string {
     weekday: "short",
     month: "short",
     day: "numeric",
-  });
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
   });
 }
 

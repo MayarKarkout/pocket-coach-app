@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session as DBSession, selectinload
 
 from app.auth import get_current_user, get_db
 from app.models import PlanDay, PlanExercise, User, Workout, WorkoutExercise, WorkoutSet
+from app.utils import reorder
 
 router = APIRouter()
 
@@ -139,16 +140,6 @@ def _get_set(exercise_id: int, set_id: int, db: DBSession) -> WorkoutSet:
 def _next_position(items: list) -> int:
     return max((i.position for i in items), default=-1) + 1
 
-
-def _reorder(items: list, item_id: int, direction: Literal["up", "down"]) -> None:
-    items = sorted(items, key=lambda i: i.position)
-    idx = next((i for i, x in enumerate(items) if x.id == item_id), None)
-    if idx is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-    if swap_idx < 0 or swap_idx >= len(items):
-        return
-    items[idx].position, items[swap_idx].position = items[swap_idx].position, items[idx].position
 
 
 def _workout_summary(w: Workout) -> WorkoutSummaryOut:
@@ -290,19 +281,19 @@ def get_gym_insights(
         )
     )
 
-    totals: dict[str, dict[str, float | int]] = {}
+    totals: dict[str, dict[str, float]] = {}
     for w in workouts:
         key = w.date.isoformat()
         if key not in totals:
-            totals[key] = {"tonnage": 0.0, "sessions": 0}
-        totals[key]["sessions"] = int(totals[key]["sessions"]) + 1
+            totals[key] = {"tonnage": 0.0, "sessions": 0.0}
+        totals[key]["sessions"] += 1
         for ex in w.exercises:
             for s in ex.sets:
                 if s.reps_min is not None and s.weight_kg is not None:
-                    totals[key]["tonnage"] = float(totals[key]["tonnage"]) + s.reps_min * float(s.weight_kg)
+                    totals[key]["tonnage"] += s.reps_min * float(s.weight_kg)
 
     by_period = [
-        PeriodTonnage(date=k, tonnage=float(v["tonnage"]), sessions=int(v["sessions"]))
+        PeriodTonnage(date=k, tonnage=v["tonnage"], sessions=int(v["sessions"]))
         for k, v in sorted(totals.items())
     ]
     total_sessions = sum(p.sessions for p in by_period)
@@ -408,7 +399,7 @@ def reorder_exercise(
     _: User = Depends(get_current_user),
 ) -> Workout:
     w = _get_workout(workout_id, db)
-    _reorder(w.exercises, exercise_id, body.direction)
+    reorder(w.exercises, exercise_id, body.direction)
     db.commit()
     return _get_workout(workout_id, db)
 

@@ -178,14 +178,18 @@ def _parse_nutrition_response(result: str | None) -> _NutritionEstimate | None:
             kcal = int(data.get("kcal", 0))
             if kcal <= 0:
                 return None
-            def _maybe_int(key: str) -> int | None:
+            def _maybe(key: str) -> int | None:
                 v = data.get(key)
-                return int(v) if v is not None and int(v) >= 0 else None
+                try:
+                    n = int(v)
+                    return n if n >= 0 else None
+                except (TypeError, ValueError):
+                    return None
             return _NutritionEstimate(
                 kcal=kcal,
-                protein_g=_maybe_int("protein_g"),
-                carbs_g=_maybe_int("carbs_g"),
-                fat_g=_maybe_int("fat_g"),
+                protein_g=_maybe("protein_g"),
+                carbs_g=_maybe("carbs_g"),
+                fat_g=_maybe("fat_g"),
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             pass
@@ -253,9 +257,14 @@ async def _estimate_nutrition_adjusted(
     base_fat_g: int | None,
     notes: str,
 ) -> None:
-    base_macros = ""
+    macro_parts = []
     if base_protein_g is not None:
-        base_macros = f" protein {base_protein_g}g, carbs {base_carbs_g}g, fat {base_fat_g}g"
+        macro_parts.append(f"protein {base_protein_g}g")
+    if base_carbs_g is not None:
+        macro_parts.append(f"carbs {base_carbs_g}g")
+    if base_fat_g is not None:
+        macro_parts.append(f"fat {base_fat_g}g")
+    base_macros = f" {', '.join(macro_parts)}" if macro_parts else ""
     prompt = (
         f"Base meal: {meal_name} ({ingredient_summary}) = {base_kcal} kcal{base_macros}. "
         f"Modification: {notes}. "

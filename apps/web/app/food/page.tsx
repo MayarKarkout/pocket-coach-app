@@ -6,32 +6,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageSpinner } from "@/components/ui/page-spinner";
 import { apiFetch } from "@/lib/api";
+import { addDays, formatNavDate, formatTime, todayISO } from "@/lib/dates";
 import type { MealLog } from "@/lib/events";
 
-function toLocalISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 function today() {
-  return toLocalISO(new Date());
-}
-
-function addDays(iso: string, n: number) {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return toLocalISO(d);
-}
-
-function formatNavDate(iso: string) {
-  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return todayISO();
 }
 
 function MealCard({ meal, onDelete }: { meal: MealLog; onDelete: () => void }) {

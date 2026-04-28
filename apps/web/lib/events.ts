@@ -1,7 +1,7 @@
 export interface FootballSession {
   id: number;
   date: string;
-  session_type: string; // "training" | "match"
+  session_type: "training" | "match";
   duration_minutes: number;
   rpe: number;
   notes: string | null;
@@ -22,7 +22,7 @@ export interface ActivitySession {
 export interface WellbeingLog {
   id: number;
   date: string;
-  log_type: string; // "pain" | "fatigue" | "soreness"
+  log_type: "pain" | "fatigue" | "soreness";
   severity: number;
   body_part: string | null;
   notes: string | null;

@@ -1,6 +1,7 @@
 import os
 
 import bcrypt
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -13,7 +14,7 @@ def seed_admin(db: Session) -> None:
     if not admin_email or not admin_password:
         return
 
-    user_count = db.query(User).count()
+    user_count = db.scalar(select(func.count()).select_from(User)) or 0
     if user_count > 0:
         return
 

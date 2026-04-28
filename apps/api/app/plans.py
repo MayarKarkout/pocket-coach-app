@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.auth import get_current_user, get_db
 from app.models import Plan, PlanDay, PlanExercise, Superset, User
+from app.utils import reorder
 
 router = APIRouter()
 
@@ -189,16 +190,6 @@ def _next_group_label(day: PlanDay) -> str:
     raise HTTPException(status_code=400, detail="Maximum 26 supersets per day")
 
 
-def _reorder(items: list, item_id: int, direction: Literal["up", "down"]) -> None:
-    items = sorted(items, key=lambda i: i.position)
-    idx = next((i for i, x in enumerate(items) if x.id == item_id), None)
-    if idx is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-    if swap_idx < 0 or swap_idx >= len(items):
-        return
-    items[idx].position, items[swap_idx].position = items[swap_idx].position, items[idx].position
-
 
 def _apply_exercise_fields(ex: PlanExercise, body: ExerciseBody) -> None:
     ex.name = body.name
@@ -331,7 +322,7 @@ def reorder_day(
     _: User = Depends(get_current_user),
 ) -> Plan:
     plan = _get_plan(plan_id, db)
-    _reorder(plan.days, day_id, body.direction)
+    reorder(plan.days, day_id, body.direction)
     db.commit()
     return _get_plan(plan_id, db)
 
@@ -667,6 +658,6 @@ def reorder_superset_exercise(
 ) -> Plan:
     _get_day(plan_id, day_id, db)
     ss = _get_superset(day_id, superset_id, db)
-    _reorder(ss.exercises, exercise_id, body.direction)
+    reorder(ss.exercises, exercise_id, body.direction)
     db.commit()
     return _get_plan(plan_id, db)

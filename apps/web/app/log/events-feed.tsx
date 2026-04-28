@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { formatTime } from "@/lib/dates";
 import type { EventItem, FootballSession, ActivitySession, WellbeingLog, MealLog } from "@/lib/events";
 
 function formatDate(iso: string): string {
@@ -35,10 +36,6 @@ function DeleteButton({ onDelete }: { onDelete: () => void }) {
       ✕
     </Button>
   );
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function FootballCard({
