@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import date as Date, timedelta
+from datetime import date as Date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession, selectinload
@@ -23,7 +23,7 @@ YEARS_SUMMARY = 1
 
 # --- Granular formatters ---
 
-def _fmt_granular(db: DBSession, today: Date) -> list[str]:
+def _fmt_granular(db: DBSession, today: Date, now: datetime) -> list[str]:
     lines: list[str] = ["LAST 7 DAYS (detailed)", ""]
 
     for i in range(DAYS_GRANULAR):
@@ -111,30 +111,46 @@ def _fmt_granular(db: DBSession, today: Date) -> list[str]:
             if summary_parts:
                 day_lines.append(f"  → Daily food total: {' · '.join(summary_parts)}")
 
+        if not any(
+            isinstance(line, str) and line.startswith("  Meal")
+            for line in day_lines
+        ):
+            if i == 0:
+                day_lines.append("  No meals logged yet today (data may be incomplete)")
+            else:
+                day_lines.append("  No meals logged — food intake unknown, not zero")
+
         health = db.scalar(
             select(DailyHealthSnapshot).where(DailyHealthSnapshot.date == d)
         )
         if health:
-            parts: list[str] = []
+            hparts: list[str] = []
             if health.steps is not None:
-                parts.append(f"steps {health.steps:,}")
+                hparts.append(f"steps {health.steps:,}")
             if health.sleep_duration_minutes is not None:
                 h, m = divmod(health.sleep_duration_minutes, 60)
-                parts.append(f"sleep {h}h{m}m")
+                hparts.append(f"sleep {h}h{m}m")
             if health.resting_hr is not None:
-                parts.append(f"resting HR {health.resting_hr}bpm")
+                hparts.append(f"resting HR {health.resting_hr}bpm")
             if health.hrv is not None:
-                parts.append(f"HRV {health.hrv:.0f}ms")
+                hparts.append(f"HRV {health.hrv:.0f}ms")
             if health.spo2 is not None:
-                parts.append(f"SpO2 {health.spo2:.1f}%")
+                hparts.append(f"SpO2 {health.spo2:.1f}%")
             if health.stress_avg is not None:
-                parts.append(f"stress {health.stress_avg}")
-            if parts:
-                day_lines.append(f"  Health: {', '.join(parts)}")
+                hparts.append(f"stress {health.stress_avg}")
+            if hparts:
+                day_lines.append(f"  Health: {', '.join(hparts)}")
+        elif i == 0:
+            day_lines.append("  No health data synced yet today")
+        else:
+            day_lines.append("  No health data — device metrics unknown")
 
         label = d.strftime("%Y-%m-%d (%A)")
         if i == 0:
-            label += " — TODAY"
+            is_morning = now.hour < 12
+            label += f" — TODAY ({now.strftime('%H:%M')})"
+            if is_morning:
+                label += " [MORNING — today's totals are incomplete, do not evaluate them]"
         lines.append(f"[{label}]")
         lines.extend(day_lines if day_lines else ["  Rest day — nothing logged"])
         lines.append("")
@@ -201,11 +217,13 @@ def _fmt_summary(summary: dict, label: str, include_exercises: bool = False) -> 
     return lines
 
 
-def build_context(db: DBSession, today: Date) -> str:
+def build_context(db: DBSession, today: Date, now: datetime | None = None) -> str:
+    if now is None:
+        now = datetime.now()
     lines: list[str] = ["=== Training Context ===", ""]
 
     # --- Granular last 7 days ---
-    lines.extend(_fmt_granular(db, today))
+    lines.extend(_fmt_granular(db, today, now))
 
     # --- Weekly stored summaries (prior 4 weeks) ---
     lines.append("PRIOR 4 WEEKS (weekly summaries)")

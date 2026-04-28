@@ -1,6 +1,8 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
+**M17: Coach Intelligence (Briefing Quality)** — ✅ Done
+
 **M16: Macro Intelligence** — ✅ Done
 
 **M15: Food Library + Meal Builder** — ✅ Done
@@ -24,7 +26,7 @@
 | M14 | Performance & Polish | ✅ Done |
 | M15 | Food Library + Meal Builder | ✅ Done |
 | M16 | Macro Intelligence (Coach + Insights) | ✅ Done |
-| M17 | Coach Intelligence (Briefing Quality) | ⬜ Not started |
+| M17 | Coach Intelligence (Briefing Quality) | ✅ Done |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -288,6 +290,18 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | Summary schema — wellbeing | `log_count`, `avg_severity`, `body_parts_affected[]`, `log_types[]` |
 | Summary schema — meals | `log_count`, `avg_daily_calories`, `days_with_logs` |
 
+## What's Done (M17 — Coach Intelligence)
+- Time-aware context: current local time passed into context; today's label includes the time and a `[MORNING]` flag before noon instructing the LLM not to evaluate incomplete-day totals
+- Health signal priority: BRIEFING_SYSTEM instructs LLM to treat RHR/SpO2/HRV/stress as background signals — only flag if clearly abnormal, never recite as routine stats
+- Missing data semantics: days with no meal logs now show "No meals logged — food intake unknown, not zero"; days without a health snapshot show "No health data — device metrics unknown"; BRIEFING_SYSTEM instructs LLM to treat absent data as unknown, never imply zero
+
+## Recent Decisions (M17 — Coach Intelligence)
+| Decision | Detail |
+|---|---|
+| Time-aware context | Pass current local time into briefing; before midday, LLM should not draw conclusions from today's step count, calorie total, or activity (day is incomplete) |
+| Health signal priority | RHR, SpO2, HRV, stress are background signals — only flag if meaningfully abnormal; don't recite as routine stats |
+| Missing data = unknown | Absent food logs, missing health snapshots, null fields → represented as "no data" in context; LLM instructed never to imply zero |
+
 ## Recent Decisions (M16 — Macro Intelligence)
 | Decision | Detail |
 |---|---|
@@ -348,6 +362,9 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-054 | tasks/TASK-054-food-tab-macros.md | ✅ Done |
 | TASK-055 | tasks/TASK-055-insights-macro-chart.md | ✅ Done |
 | TASK-056 | tasks/TASK-056-briefing-meal-context.md | ✅ Done |
+| TASK-057 | tasks/TASK-057-time-aware-context.md | ✅ Done |
+| TASK-058 | tasks/TASK-058-health-signal-priority.md | ✅ Done |
+| TASK-059 | tasks/TASK-059-missing-data-semantics.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-28 — M16 (Macro Intelligence) shipped. Next: M17 (Coach Intelligence). M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-04-28 — M16 (Macro Intelligence) + M17 (Coach Intelligence) shipped. M13 (LLM Tool Use) still deferred.*

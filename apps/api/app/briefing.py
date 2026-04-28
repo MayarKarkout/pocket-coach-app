@@ -22,12 +22,12 @@ USER_TIMEZONE = os.environ.get("USER_TIMEZONE", "UTC")
 _context_cache: dict[str, str] = {}
 
 
-def _get_cached_context(db: DBSession, today: Date) -> str:
+def _get_cached_context(db: DBSession, today: Date, now: datetime) -> str:
     today_str = today.isoformat()
     if _context_cache and next(iter(_context_cache)) != today_str:
         _context_cache.clear()
     if today_str not in _context_cache:
-        _context_cache[today_str] = build_context(db, today)
+        _context_cache[today_str] = build_context(db, today, now)
     return _context_cache[today_str]
 
 
@@ -56,7 +56,19 @@ Rules:
 - Ground every point in actual data — never invent facts
 - If data is sparse, say what's missing and why it matters
 - Use metric units
-- Be concise"""
+- Be concise
+
+Time-awareness:
+- The context header shows the current time. If it is marked [MORNING], today's step count, calorie total, and activity volume are INCOMPLETE — do not evaluate or comment on them; only describe what has already happened without drawing conclusions
+
+Health signals:
+- RHR, SpO2, HRV, and stress are BACKGROUND signals — only mention them if a value is clearly abnormal (e.g. RHR elevated 10+ bpm above recent baseline, SpO2 below 95%, HRV sharply below recent average)
+- Do not recite these metrics as routine stats in every briefing
+
+Missing data:
+- "No meals logged" means food intake is UNKNOWN, not zero — never imply the athlete ate nothing
+- "No health data" means device metrics are UNKNOWN, not zero — never imply zero steps or zero sleep
+- Absent data should prompt a note that data is missing, not a conclusion based on zero"""
 
 CHAT_SYSTEM = """You are PocketCoach, a realistic and demanding personal sports coach. You have access to the athlete's recent training data shown below.
 
@@ -65,8 +77,12 @@ Answer questions concisely. Give specific, data-grounded advice. Be demanding bu
 {context}"""
 
 
+def _now_user_tz() -> datetime:
+    return datetime.now(ZoneInfo(USER_TIMEZONE))
+
+
 def _today_user_tz() -> Date:
-    return datetime.now(ZoneInfo(USER_TIMEZONE)).date()
+    return _now_user_tz().date()
 
 
 class BriefingOut(BaseModel):
@@ -85,8 +101,8 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-async def _generate_and_store(db: DBSession, llm: LLMProvider, today: Date) -> DailyBriefing:
-    context = _get_cached_context(db, today)
+async def _generate_and_store(db: DBSession, llm: LLMProvider, today: Date, now: datetime) -> DailyBriefing:
+    context = _get_cached_context(db, today, now)
     content = await llm.complete(
         system=BRIEFING_SYSTEM,
         messages=[ChatMessage(role="user", content=f"Generate my daily briefing.\n\n{context}")],
@@ -114,11 +130,12 @@ async def get_briefing(
     current_user: User = Depends(get_current_user),
     llm: LLMProvider = Depends(get_llm),
 ) -> BriefingOut:
-    today = _today_user_tz()
+    now = _now_user_tz()
+    today = now.date()
     existing = db.scalar(select(DailyBriefing).where(DailyBriefing.date == today))
     if existing:
         return _to_out(existing)
-    return _to_out(await _generate_and_store(db, llm, today))
+    return _to_out(await _generate_and_store(db, llm, today, now))
 
 
 @router.post("/today/regenerate", response_model=BriefingOut)
@@ -127,11 +144,12 @@ async def regenerate_briefing(
     current_user: User = Depends(get_current_user),
     llm: LLMProvider = Depends(get_llm),
 ) -> BriefingOut:
-    today = _today_user_tz()
+    now = _now_user_tz()
+    today = now.date()
     _invalidate_context_cache()
     db.execute(delete(DailyBriefing).where(DailyBriefing.date == today))
     db.commit()
-    return _to_out(await _generate_and_store(db, llm, today))
+    return _to_out(await _generate_and_store(db, llm, today, now))
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -141,8 +159,9 @@ async def chat(
     current_user: User = Depends(get_current_user),
     llm: LLMProvider = Depends(get_llm),
 ) -> ChatResponse:
-    today = _today_user_tz()
-    context = _get_cached_context(db, today)
+    now = _now_user_tz()
+    today = now.date()
+    context = _get_cached_context(db, today, now)
     system = CHAT_SYSTEM.format(context=context)
     messages = list(request.history) + [ChatMessage(role="user", content=request.message)]
     reply = await llm.complete(
