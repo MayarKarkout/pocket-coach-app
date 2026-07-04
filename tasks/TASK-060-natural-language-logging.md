@@ -14,7 +14,8 @@ One free-text box → LLM parses into structured draft entries (meals, activitie
 - [x] Frontend: confirm screen — editable cards per entry type, delete individual, save all
 - [x] Today `+` menu: "✨ Quick Log" option
 - [x] Meal entries without stated calories: AI nutrition estimation background task fires on commit
-- [x] End-to-end verified locally: parse (all 5 types, date/time inference, set expansion), commit, workout structure, meal estimation
+- [x] Workout draft editor parity with `/workouts/[id]`: superset grouping, timed-vs-rep sets with min–max ranges, per-set notes, duplicate-set
+- [x] End-to-end verified locally: parse (all 5 types, date/time inference, set expansion, supersets, timed sets, per-set notes), commit, workout structure (incl. superset_group), meal estimation
 
 ## Decisions
 - LLM: Gemini Flash (`gemini-3-flash-preview`), synchronous parse call
@@ -22,7 +23,9 @@ One free-text box → LLM parses into structured draft entries (meals, activitie
 - Draft schema = discriminated Pydantic union on `entry_type`; same schema for parse response and commit request, so edited drafts round-trip
 - Format instructions in the user message, not system prompt (per Gemini feedback memory)
 - `time` is local HH:MM in drafts; backend converts to UTC `occurred_at` via `USER_TIMEZONE`; for workouts it becomes `started_at`
-- Gym sets: "3x5 at 100kg" → 3 set rows with `reps_min=5`, `reps_max=None`
+- Gym sets: "3x5 at 100kg" → 3 set rows with `reps_min=5`, `reps_max=None`; ranges ("8-12 reps") map to `reps_min`/`reps_max` directly
+- Workout draft editor has full parity with the real workout editor: `superset_group` label per exercise (grouped visually), per-set timed/rep toggle with ranges, per-set notes, add/duplicate set, add/remove exercise — all as local draft state, no API calls until "Save all" commits
+- `per_side` intentionally excluded — it's a `PlanExercise` (plan template) field, not a `Workout`/`WorkoutSet` field; doesn't apply to logged sessions
 - Unparseable LLM output → 502 with "Could not understand the text. Try rephrasing."
 
 ## Blockers

@@ -75,13 +75,17 @@ class DraftWellbeing(BaseModel):
 
 
 class DraftSet(BaseModel):
-    reps: int | None = None
-    duration_seconds: int | None = None
+    reps_min: int | None = None
+    reps_max: int | None = None
+    duration_min_seconds: int | None = None
+    duration_max_seconds: int | None = None
     weight_kg: Decimal | None = None
+    notes: str | None = None
 
 
 class DraftExercise(BaseModel):
     name: str
+    superset_group: str | None = None
     sets: list[DraftSet]
 
 
@@ -143,7 +147,7 @@ Wellbeing (pain, fatigue, soreness):
 {{"entry_type": "wellbeing", "date": "YYYY-MM-DD", "time": "HH:MM" or null, "log_type": "pain" or "fatigue" or "soreness", "severity": 5, "body_part": "knee" or null, "notes": null}}
 
 Gym workout (strength training):
-{{"entry_type": "workout", "date": "YYYY-MM-DD", "time": "HH:MM" or null, "label": "Gym", "notes": null, "exercises": [{{"name": "Squat", "sets": [{{"reps": 5, "weight_kg": 100, "duration_seconds": null}}]}}]}}
+{{"entry_type": "workout", "date": "YYYY-MM-DD", "time": "HH:MM" or null, "label": "Gym", "notes": null, "exercises": [{{"name": "Squat", "superset_group": null, "sets": [{{"reps_min": 5, "reps_max": null, "duration_min_seconds": null, "duration_max_seconds": null, "weight_kg": 100, "notes": null}}]}}]}}
 
 Rules:
 - Today is {weekday} {today}. Dates default to today; resolve "yesterday", weekday names etc. relative to today.
@@ -152,7 +156,7 @@ Rules:
 - Meal "meal_type": one of Breakfast, Morning snack, Lunch, Afternoon snack, Dinner — pick the best fit; if unclear use a sensible guess from food/time context.
 - Football "rpe": 1–10; use the stated effort, otherwise estimate from context, default 5.
 - Wellbeing "severity": 1–10; estimate from wording, default 5.
-- Gym: "3x5 at 100kg" means 3 separate sets each {{"reps": 5, "weight_kg": 100}}. Timed holds go in "duration_seconds" instead of "reps". "label" is a short session name like "Push day" or "Gym".
+- Gym: "3x5 at 100kg" means 3 separate sets each {{"reps_min": 5, "reps_max": null, "weight_kg": 100}}. A stated range like "8-12 reps" becomes {{"reps_min": 8, "reps_max": 12}}. Timed holds (planks, carries) use "duration_min_seconds"/"duration_max_seconds" instead of reps. "superset_group" is a short label (e.g. "A") shared by exercises explicitly performed back-to-back as a superset/circuit; null for standalone exercises. Per-set remarks (e.g. "last set was a struggle") go in that set's "notes". "label" is a short session name like "Push day" or "Gym".
 - Create one entry per distinct meal/session/symptom. Do not invent anything not in the message.
 - If nothing in the message is loggable, reply with [].
 
@@ -271,15 +275,23 @@ def commit_quick_log(
             db.add(obj)
             db.flush()
             for ex_pos, ex in enumerate(entry.exercises):
-                we = WorkoutExercise(workout_id=obj.id, name=ex.name, position=ex_pos)
+                we = WorkoutExercise(
+                    workout_id=obj.id,
+                    name=ex.name,
+                    superset_group=ex.superset_group,
+                    position=ex_pos,
+                )
                 db.add(we)
                 db.flush()
                 for set_pos, s in enumerate(ex.sets):
                     db.add(WorkoutSet(
                         workout_exercise_id=we.id,
-                        reps_min=s.reps,
-                        duration_min_seconds=s.duration_seconds,
+                        reps_min=s.reps_min,
+                        reps_max=s.reps_max,
+                        duration_min_seconds=s.duration_min_seconds,
+                        duration_max_seconds=s.duration_max_seconds,
                         weight_kg=s.weight_kg,
+                        notes=s.notes,
                         position=set_pos,
                     ))
 

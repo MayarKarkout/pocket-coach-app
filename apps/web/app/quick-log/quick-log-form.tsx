@@ -6,14 +6,29 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 interface DraftSet {
-  reps: number | null;
-  duration_seconds: number | null;
+  reps_min: number | null;
+  reps_max: number | null;
+  duration_min_seconds: number | null;
+  duration_max_seconds: number | null;
   weight_kg: number | null;
+  notes: string | null;
 }
 
 interface DraftExercise {
   name: string;
+  superset_group: string | null;
   sets: DraftSet[];
+}
+
+function emptySet(): DraftSet {
+  return {
+    reps_min: null,
+    reps_max: null,
+    duration_min_seconds: null,
+    duration_max_seconds: null,
+    weight_kg: null,
+    notes: null,
+  };
 }
 
 interface DraftBase {
@@ -65,6 +80,255 @@ const TYPE_LABELS: Record<DraftEntry["entry_type"], string> = {
 };
 
 const inputCls = "rounded-lg border border-border bg-background px-2 py-1.5 text-sm";
+
+// ── Workout draft editor (mirrors /workouts/[id]: supersets, timed/rep-range sets, per-set notes) ──
+
+function SetRowEditor({
+  s,
+  setNum,
+  onChange,
+  onRemove,
+}: {
+  s: DraftSet;
+  setNum: number;
+  onChange: (s: DraftSet) => void;
+  onRemove: () => void;
+}) {
+  const isTimed = s.duration_min_seconds != null;
+
+  function toggleTimed(timed: boolean) {
+    onChange(
+      timed
+        ? { ...s, reps_min: null, reps_max: null, duration_min_seconds: 30, duration_max_seconds: null }
+        : { ...s, duration_min_seconds: null, duration_max_seconds: null, reps_min: 8, reps_max: null }
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-border p-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground w-10 shrink-0">Set {setNum}</span>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <input type="checkbox" checked={isTimed} onChange={(e) => toggleTimed(e.target.checked)} />
+          Timed
+        </label>
+        <button type="button" className="ml-auto text-xs text-muted-foreground hover:text-foreground" onClick={onRemove}>
+          ✕
+        </button>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap pl-1">
+        {isTimed ? (
+          <>
+            <input
+              type="number"
+              min={0}
+              placeholder="sec"
+              value={s.duration_min_seconds ?? ""}
+              onChange={(e) =>
+                onChange({ ...s, duration_min_seconds: e.target.value === "" ? null : Number(e.target.value) })
+              }
+              className={`${inputCls} w-20`}
+            />
+            <span className="text-xs text-muted-foreground">–</span>
+            <input
+              type="number"
+              min={0}
+              placeholder="max (opt.)"
+              value={s.duration_max_seconds ?? ""}
+              onChange={(e) =>
+                onChange({ ...s, duration_max_seconds: e.target.value === "" ? null : Number(e.target.value) })
+              }
+              className={`${inputCls} w-24`}
+            />
+            <span className="text-xs text-muted-foreground">s</span>
+          </>
+        ) : (
+          <>
+            <input
+              type="number"
+              min={0}
+              placeholder="reps"
+              value={s.reps_min ?? ""}
+              onChange={(e) => onChange({ ...s, reps_min: e.target.value === "" ? null : Number(e.target.value) })}
+              className={`${inputCls} w-16`}
+            />
+            <span className="text-xs text-muted-foreground">–</span>
+            <input
+              type="number"
+              min={0}
+              placeholder="max (opt.)"
+              value={s.reps_max ?? ""}
+              onChange={(e) => onChange({ ...s, reps_max: e.target.value === "" ? null : Number(e.target.value) })}
+              className={`${inputCls} w-24`}
+            />
+            <span className="text-xs text-muted-foreground">reps</span>
+          </>
+        )}
+        <input
+          type="number"
+          min={0}
+          step="0.5"
+          placeholder="kg"
+          value={s.weight_kg ?? ""}
+          onChange={(e) => onChange({ ...s, weight_kg: e.target.value === "" ? null : Number(e.target.value) })}
+          className={`${inputCls} w-20`}
+        />
+        <span className="text-xs text-muted-foreground">kg</span>
+      </div>
+      <input
+        type="text"
+        placeholder="Set notes (opt.)"
+        value={s.notes ?? ""}
+        onChange={(e) => onChange({ ...s, notes: e.target.value || null })}
+        className={`${inputCls} pl-1`}
+      />
+    </div>
+  );
+}
+
+function ExerciseEditor({
+  ex,
+  onChange,
+  onRemove,
+}: {
+  ex: DraftExercise;
+  onChange: (ex: DraftExercise) => void;
+  onRemove: () => void;
+}) {
+  const lastSet = ex.sets[ex.sets.length - 1];
+
+  return (
+    <div className="rounded-lg border border-border p-2 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={ex.name}
+          onChange={(e) => onChange({ ...ex, name: e.target.value })}
+          className={`${inputCls} flex-1 font-medium`}
+          placeholder="Exercise name"
+        />
+        <input
+          type="text"
+          value={ex.superset_group ?? ""}
+          onChange={(e) => onChange({ ...ex, superset_group: e.target.value || null })}
+          className={`${inputCls} w-24`}
+          placeholder="Superset"
+        />
+        <Button type="button" size="sm" variant="outline" onClick={onRemove}>✕</Button>
+      </div>
+      {ex.sets.map((s, setIdx) => (
+        <SetRowEditor
+          key={setIdx}
+          s={s}
+          setNum={setIdx + 1}
+          onChange={(updated) =>
+            onChange({ ...ex, sets: ex.sets.map((row, i) => (i === setIdx ? updated : row)) })
+          }
+          onRemove={() => onChange({ ...ex, sets: ex.sets.filter((_, i) => i !== setIdx) })}
+        />
+      ))}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => onChange({ ...ex, sets: [...ex.sets, lastSet ? { ...lastSet } : emptySet()] })}
+        >
+          + Add set
+        </button>
+        {lastSet && (
+          <button
+            type="button"
+            className="text-base text-muted-foreground hover:text-foreground"
+            title="Duplicate last set"
+            onClick={() => onChange({ ...ex, sets: [...ex.sets, { ...lastSet }] })}
+          >
+            ⧉
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WorkoutDraftEditor({
+  entry,
+  onChange,
+}: {
+  entry: DraftWorkout;
+  onChange: (patch: Partial<DraftWorkout>) => void;
+}) {
+  function updateExercise(exIdx: number, updated: DraftExercise) {
+    onChange({ exercises: entry.exercises.map((x, i) => (i === exIdx ? updated : x)) });
+  }
+  function removeExercise(exIdx: number) {
+    onChange({ exercises: entry.exercises.filter((_, i) => i !== exIdx) });
+  }
+
+  // Group consecutive exercises sharing a superset_group, same visual grouping as /workouts/[id]
+  type Item =
+    | { kind: "standalone"; exIdx: number }
+    | { kind: "superset"; label: string; exIndices: number[] };
+  const items: Item[] = [];
+  const seenGroups = new Set<string>();
+  entry.exercises.forEach((ex, exIdx) => {
+    if (ex.superset_group == null) {
+      items.push({ kind: "standalone", exIdx });
+    } else if (!seenGroups.has(ex.superset_group)) {
+      seenGroups.add(ex.superset_group);
+      const exIndices = entry.exercises
+        .map((e, i) => ({ e, i }))
+        .filter(({ e }) => e.superset_group === ex.superset_group)
+        .map(({ i }) => i);
+      items.push({ kind: "superset", label: ex.superset_group, exIndices });
+    }
+  });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Field label="Session name">
+        <input
+          type="text"
+          value={entry.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          className={inputCls}
+        />
+      </Field>
+
+      {items.map((item, itemIdx) =>
+        item.kind === "standalone" ? (
+          <ExerciseEditor
+            key={itemIdx}
+            ex={entry.exercises[item.exIdx]}
+            onChange={(updated) => updateExercise(item.exIdx, updated)}
+            onRemove={() => removeExercise(item.exIdx)}
+          />
+        ) : (
+          <div key={itemIdx} className="rounded-xl border border-border p-2 flex flex-col gap-2">
+            <span className="text-xs font-bold text-muted-foreground pl-1">Superset {item.label}</span>
+            {item.exIndices.map((exIdx) => (
+              <ExerciseEditor
+                key={exIdx}
+                ex={entry.exercises[exIdx]}
+                onChange={(updated) => updateExercise(exIdx, updated)}
+                onRemove={() => removeExercise(exIdx)}
+              />
+            ))}
+          </div>
+        )
+      )}
+
+      <button
+        type="button"
+        className="text-xs text-muted-foreground hover:text-foreground self-start"
+        onClick={() =>
+          onChange({ exercises: [...entry.exercises, { name: "", superset_group: null, sets: [emptySet()] }] })
+        }
+      >
+        + Add exercise
+      </button>
+    </div>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -309,133 +573,10 @@ export function QuickLogForm() {
           )}
 
           {entry.entry_type === "workout" && (
-            <div className="flex flex-col gap-3">
-              <Field label="Session name">
-                <input
-                  type="text"
-                  value={entry.label}
-                  onChange={(e) => update(idx, { label: e.target.value })}
-                  className={inputCls}
-                />
-              </Field>
-              {entry.exercises.map((ex, exIdx) => (
-                <div key={exIdx} className="rounded-lg border border-border p-2 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={ex.name}
-                      onChange={(e) => {
-                        const exercises = entry.exercises.map((x, i) =>
-                          i === exIdx ? { ...x, name: e.target.value } : x
-                        );
-                        update(idx, { exercises });
-                      }}
-                      className={`${inputCls} flex-1 font-medium`}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        update(idx, { exercises: entry.exercises.filter((_, i) => i !== exIdx) })
-                      }
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                  {ex.sets.map((s, setIdx) => (
-                    <div key={setIdx} className="flex items-center gap-2 pl-1">
-                      <span className="text-xs text-muted-foreground w-10 shrink-0">
-                        Set {setIdx + 1}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="reps"
-                        value={s.reps ?? ""}
-                        onChange={(e) => {
-                          const sets = ex.sets.map((row, i) =>
-                            i === setIdx
-                              ? { ...row, reps: e.target.value === "" ? null : Number(e.target.value) }
-                              : row
-                          );
-                          const exercises = entry.exercises.map((x, i) =>
-                            i === exIdx ? { ...x, sets } : x
-                          );
-                          update(idx, { exercises });
-                        }}
-                        className={`${inputCls} w-20`}
-                      />
-                      <span className="text-xs text-muted-foreground">reps</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.5"
-                        placeholder="kg"
-                        value={s.weight_kg ?? ""}
-                        onChange={(e) => {
-                          const sets = ex.sets.map((row, i) =>
-                            i === setIdx
-                              ? { ...row, weight_kg: e.target.value === "" ? null : Number(e.target.value) }
-                              : row
-                          );
-                          const exercises = entry.exercises.map((x, i) =>
-                            i === exIdx ? { ...x, sets } : x
-                          );
-                          update(idx, { exercises });
-                        }}
-                        className={`${inputCls} w-20`}
-                      />
-                      <span className="text-xs text-muted-foreground">kg</span>
-                      <button
-                        type="button"
-                        className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          const sets = ex.sets.filter((_, i) => i !== setIdx);
-                          const exercises = entry.exercises.map((x, i) =>
-                            i === exIdx ? { ...x, sets } : x
-                          );
-                          update(idx, { exercises });
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground hover:text-foreground self-start"
-                    onClick={() => {
-                      const last = ex.sets[ex.sets.length - 1];
-                      const sets = [
-                        ...ex.sets,
-                        last ? { ...last } : { reps: null, duration_seconds: null, weight_kg: null },
-                      ];
-                      const exercises = entry.exercises.map((x, i) =>
-                        i === exIdx ? { ...x, sets } : x
-                      );
-                      update(idx, { exercises });
-                    }}
-                  >
-                    + Add set
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-foreground self-start"
-                onClick={() =>
-                  update(idx, {
-                    exercises: [
-                      ...entry.exercises,
-                      { name: "", sets: [{ reps: null, duration_seconds: null, weight_kg: null }] },
-                    ],
-                  })
-                }
-              >
-                + Add exercise
-              </button>
-            </div>
+            <WorkoutDraftEditor
+              entry={entry}
+              onChange={(patch) => update(idx, patch)}
+            />
           )}
 
           <Field label="Notes">
