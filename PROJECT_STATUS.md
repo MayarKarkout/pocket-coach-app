@@ -1,6 +1,8 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
+**M18: Natural Language Logging** — ✅ Done
+
 **M17: Coach Intelligence (Briefing Quality)** — ✅ Done
 
 **M16: Macro Intelligence** — ✅ Done
@@ -27,6 +29,7 @@
 | M15 | Food Library + Meal Builder | ✅ Done |
 | M16 | Macro Intelligence (Coach + Insights) | ✅ Done |
 | M17 | Coach Intelligence (Briefing Quality) | ✅ Done |
+| M18 | Natural Language Logging | ✅ Done |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -312,6 +315,26 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | Insights macro chart | Stacked bar (P/C/F per day) in food section, using existing time window selector |
 | Briefing context | Add meal times (`occurred_at`) + daily macro actuals to LLM context |
 
+## What's Done (M18 — Natural Language Logging)
+- `POST /quick-log/parse` — free text → draft entries via Gemini Flash (synchronous); all 5 entry types (meal, activity, football, wellbeing, gym workout with exercises + sets); date inference ("yesterday", weekdays) + optional local time → UTC `occurred_at`
+- `POST /quick-log/commit` — creates confirmed drafts server-side; gym workouts created plan-less (`plan_day_id=null`, LLM label); meals without stated kcal trigger the existing AI nutrition estimation background task
+- `/quick-log` page: textarea → review screen with per-type editable cards (delete entry, edit any field, add/remove workout sets + exercises) → save all → back to Today
+- Today `+` menu: "✨ Quick Log" entry at the top
+- No DB changes — no migration
+- Verified end-to-end locally: parse quality (5 types from one blob, "6pm" → 18:00, "3x5 at 100kg" → 3 set rows), commit, AI kcal estimation on committed meals
+
+## Recent Decisions (M18 — Natural Language Logging)
+| Decision | Detail |
+|---|---|
+| Entry point | New "Quick Log" option in the `+` menu on Today view |
+| UI | Dedicated `/quick-log` page with a single textarea; user types anything in natural language |
+| LLM | Gemini Flash, synchronous call (user waits for parse result) |
+| Entry types | All types: meal logs, activity sessions, football sessions, wellbeing logs, gym workouts (with exercises + sets) |
+| Multi-entry | One submission can produce multiple entries (e.g. a full day parsed into 4–5 records) |
+| Date inference | LLM infers date from context ("yesterday", "this morning"); defaults to today if unspecified |
+| Confirm screen | Parsed entries shown as editable cards; user can edit inline, delete individual entries, then save all |
+| Additive only | Does not replace any existing forms; purely augments current input mechanisms |
+
 ## Open Decisions
 - **Persistent Cloudflare tunnel** — currently using a temporary trycloudflare.com URL (changes on restart). Needs a domain (~$10/yr) + named tunnel + cloudflared as systemd service for stability. See `docs/cloudflare-tunnel.md`.
 
@@ -365,6 +388,7 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-057 | tasks/TASK-057-time-aware-context.md | ✅ Done |
 | TASK-058 | tasks/TASK-058-health-signal-priority.md | ✅ Done |
 | TASK-059 | tasks/TASK-059-missing-data-semantics.md | ✅ Done |
+| TASK-060 | tasks/TASK-060-natural-language-logging.md | ✅ Done |
 
 ---
-*Last updated: 2026-04-28 — M16 (Macro Intelligence) + M17 (Coach Intelligence) shipped. M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-07-04 — M18 (Natural Language Logging) shipped. M13 (LLM Tool Use) still deferred.*

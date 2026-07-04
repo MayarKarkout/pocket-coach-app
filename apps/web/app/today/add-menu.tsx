@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 const LOG_TYPES = [
+  { label: "✨ Quick Log", href: "/quick-log" },
   { label: "Gym Workout", href: "/workouts/new" },
   { label: "Football", href: "/log/football/new" },
   { label: "Activity", href: "/log/activity/new" },

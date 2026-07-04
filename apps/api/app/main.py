@@ -16,6 +16,7 @@ from app.meal_definitions import router as meal_definitions_router
 from app.today import router as today_router
 from app.briefing import router as briefing_router
 from app.gadgetbridge import router as gadgetbridge_router
+from app.quick_log import router as quick_log_router
 from app.db import SessionLocal, check_db
 from app.seed import seed_admin
 
@@ -52,6 +53,7 @@ app.include_router(meal_definitions_router, prefix="/meal-definitions")
 app.include_router(today_router)
 app.include_router(briefing_router)
 app.include_router(gadgetbridge_router)
+app.include_router(quick_log_router)
 
 
 @app.get("/health")
