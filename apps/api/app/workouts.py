@@ -34,6 +34,7 @@ class WorkoutExerciseOut(BaseModel):
     id: int
     name: str
     superset_group: str | None
+    per_side: bool
     position: int
     sets: list[WorkoutSetOut]
 
@@ -82,10 +83,12 @@ class UpdateWorkoutBody(BaseModel):
 class CreateExerciseBody(BaseModel):
     name: str
     superset_group: str | None = None
+    per_side: bool = False
 
 
 class UpdateExerciseBody(BaseModel):
     name: str
+    per_side: bool = False
 
 
 class WorkoutSetBody(BaseModel):
@@ -175,6 +178,7 @@ def _populate_from_plan_day(workout: Workout, day: PlanDay, db: DBSession) -> No
             workout_id=workout.id,
             name=plan_ex.name,
             superset_group=group,
+            per_side=plan_ex.per_side,
             position=pos,
         )
         db.add(we)
@@ -199,6 +203,7 @@ def _copy_from_workout(new_workout: Workout, source: Workout, db: DBSession) -> 
             workout_id=new_workout.id,
             name=src_ex.name,
             superset_group=src_ex.superset_group,
+            per_side=src_ex.per_side,
             position=src_ex.position,
         )
         db.add(we)
@@ -358,6 +363,7 @@ def add_exercise(
         workout_id=workout_id,
         name=body.name,
         superset_group=body.superset_group,
+        per_side=body.per_side,
         position=_next_position(w.exercises),
     ))
     db.commit()
@@ -375,6 +381,7 @@ def update_exercise(
 ) -> Workout:
     ex = _get_exercise(workout_id, exercise_id, db)
     ex.name = body.name
+    ex.per_side = body.per_side
     db.commit()
     return _get_workout(workout_id, db)
 

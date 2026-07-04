@@ -320,8 +320,9 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 - `POST /quick-log/commit` — creates confirmed drafts server-side; gym workouts created plan-less (`plan_day_id=null`, LLM label); meals without stated kcal trigger the existing AI nutrition estimation background task
 - `/quick-log` page: textarea → review screen with per-type editable cards (delete entry, edit any field, add/remove workout sets + exercises) → save all → back to Today
 - Today `+` menu: "✨ Quick Log" entry at the top
-- No DB changes — no migration
-- Verified end-to-end locally: parse quality (5 types from one blob, "6pm" → 18:00, "3x5 at 100kg" → 3 set rows), commit, AI kcal estimation on committed meals
+- Quick Log workout draft editor has full parity with the manual `/workouts/[id]` editor: superset grouping, timed-vs-rep sets with min–max ranges, per-set notes, duplicate-set
+- `per_side` (unilateral exercise flag) extended from plan templates to logged workouts — migration 0017 adds it to `workout_exercises`; editable in the manual workout editor (add-exercise checkbox + inline toggle, "/ side" shown on set rows) and in Quick Log (LLM detects "per side"/"each leg" phrasing); plan-day snapshot and copy-from-workout both carry it over
+- Verified end-to-end locally: parse quality (5 types from one blob, "6pm" → 18:00, "3x5 at 100kg" → 3 set rows, supersets, timed sets, per-set notes, per_side), commit, AI kcal estimation on committed meals, manual exercise add/PATCH with per_side
 
 ## Recent Decisions (M18 — Natural Language Logging)
 | Decision | Detail |

@@ -21,7 +21,7 @@ function formatDuration(min: number | null, max: number | null): string {
   return max != null && max !== min ? `${fmt(min)}–${fmt(max)}` : fmt(min);
 }
 
-function formatSet(s: WorkoutSet): string {
+function formatSet(s: WorkoutSet, perSide: boolean): string {
   const load =
     s.duration_min_seconds != null
       ? formatDuration(s.duration_min_seconds, s.duration_max_seconds)
@@ -29,7 +29,7 @@ function formatSet(s: WorkoutSet): string {
       ? `${s.reps_min}–${s.reps_max} reps`
       : `${s.reps_min ?? "—"} reps`;
   const weight = s.weight_kg != null ? ` · ${s.weight_kg} kg` : "";
-  return `${load}${weight}`;
+  return `${load}${perSide ? " / side" : ""}${weight}`;
 }
 
 // ── DeleteButton ──────────────────────────────────────────────────────────────
@@ -205,12 +205,14 @@ function SetRow({
   setNum,
   exerciseId,
   workoutId,
+  perSide,
   onUpdate,
 }: {
   s: WorkoutSet;
   setNum: number;
   exerciseId: number;
   workoutId: number;
+  perSide: boolean;
   onUpdate: (w: Workout) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -240,7 +242,7 @@ function SetRow({
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground w-6 shrink-0">{setNum}</span>
-      <span className="flex-1 text-sm">{formatSet(s)}</span>
+      <span className="flex-1 text-sm">{formatSet(s, perSide)}</span>
       {s.notes && <span className="text-xs text-muted-foreground truncate max-w-32">{s.notes}</span>}
       <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit</Button>
       <DeleteButton onDelete={remove} >✕</DeleteButton>
@@ -268,6 +270,16 @@ function ExerciseCard({
     const res = await apiFetch(base, { method: "DELETE" });
     if (!res.ok) return;
     onUpdate(await (await apiFetch(`/workouts/${workoutId}`)).json());
+  }
+
+  async function togglePerSide() {
+    const res = await apiFetch(base, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: ex.name, per_side: !ex.per_side }),
+    });
+    if (!res.ok) return;
+    onUpdate(await res.json());
   }
 
   async function addSet(payload: ReturnType<typeof toSetPayload>) {
@@ -303,6 +315,10 @@ function ExerciseCard({
     <div className="flex flex-col gap-2 rounded-xl border border-border p-4">
       <div className="flex items-center gap-2">
         <span className="flex-1 font-medium text-sm">{ex.name}</span>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer">
+          <input type="checkbox" checked={ex.per_side} onChange={togglePerSide} />
+          / side
+        </label>
         <DeleteButton onDelete={remove}>✕</DeleteButton>
       </div>
 
@@ -315,6 +331,7 @@ function ExerciseCard({
               setNum={idx + 1}
               exerciseId={ex.id}
               workoutId={workoutId}
+              perSide={ex.per_side}
               onUpdate={onUpdate}
             />
           ))}
@@ -385,13 +402,14 @@ function AddExerciseForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
+  const [perSide, setPerSide] = useState(false);
 
   async function save() {
     if (!name.trim()) return;
     const res = await apiFetch(`/workouts/${workoutId}/exercises`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, per_side: perSide }),
     });
     if (!res.ok) return;
     onUpdate(await res.json());
@@ -409,6 +427,10 @@ function AddExerciseForm({
         className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         onKeyDown={(e) => e.key === "Enter" && save()}
       />
+      <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+        <input type="checkbox" checked={perSide} onChange={(e) => setPerSide(e.target.checked)} />
+        / side
+      </label>
       <Button size="sm" onClick={save} disabled={!name.trim()}>Add</Button>
       <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
     </div>

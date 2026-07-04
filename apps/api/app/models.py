@@ -138,6 +138,7 @@ class WorkoutExercise(Base):
     workout_id: Mapped[int] = mapped_column(ForeignKey("workouts.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     superset_group: Mapped[str | None] = mapped_column(String, nullable=True)
+    per_side: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
     workout: Mapped["Workout"] = relationship(back_populates="exercises")

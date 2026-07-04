@@ -28,8 +28,10 @@ One free-text box → LLM parses into structured draft entries (meals, activitie
 - `per_side` intentionally excluded — it's a `PlanExercise` (plan template) field, not a `Workout`/`WorkoutSet` field; doesn't apply to logged sessions
 - Unparseable LLM output → 502 with "Could not understand the text. Try rephrasing."
 
+- [x] `per_side` added to logged workouts (not just plan templates): migration 0017, model, manual workout editor (add-exercise checkbox + inline toggle + "/ side" set label), Quick Log draft schema + prompt + editor, plan-day snapshot + copy-from-workout carry it over
+
 ## Blockers
 - None
 
 ## Where we left off
-- Shipped. No migration needed (no schema changes).
+- Shipped. Migration 0017 (`per_side` on `workout_exercises`) must be run in production after deploy.

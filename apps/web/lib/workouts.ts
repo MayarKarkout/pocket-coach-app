@@ -13,6 +13,7 @@ export interface WorkoutExercise {
   id: number;
   name: string;
   superset_group: string | null;
+  per_side: boolean;
   position: number;
   sets: WorkoutSet[];
 }

@@ -17,6 +17,7 @@ interface DraftSet {
 interface DraftExercise {
   name: string;
   superset_group: string | null;
+  per_side: boolean;
   sets: DraftSet[];
 }
 
@@ -214,6 +215,14 @@ function ExerciseEditor({
           className={`${inputCls} w-24`}
           placeholder="Superset"
         />
+        <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={ex.per_side}
+            onChange={(e) => onChange({ ...ex, per_side: e.target.checked })}
+          />
+          / side
+        </label>
         <Button type="button" size="sm" variant="outline" onClick={onRemove}>✕</Button>
       </div>
       {ex.sets.map((s, setIdx) => (
@@ -321,7 +330,7 @@ function WorkoutDraftEditor({
         type="button"
         className="text-xs text-muted-foreground hover:text-foreground self-start"
         onClick={() =>
-          onChange({ exercises: [...entry.exercises, { name: "", superset_group: null, sets: [emptySet()] }] })
+          onChange({ exercises: [...entry.exercises, { name: "", superset_group: null, per_side: false, sets: [emptySet()] }] })
         }
       >
         + Add exercise
