@@ -6,14 +6,6 @@ import { apiFetch } from "@/lib/api";
 
 type LogType = "pain" | "fatigue" | "soreness";
 
-function todayISO(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function nowLocalTime(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -23,10 +15,10 @@ function combineDateTime(date: string, time: string): string {
   return new Date(`${date}T${time}`).toISOString();
 }
 
-export function NewWellbeingForm() {
+export function NewWellbeingForm({ initialDate }: { initialDate: string }) {
   const router = useRouter();
 
-  const [date, setDate] = useState<string>(todayISO());
+  const [date, setDate] = useState<string>(initialDate);
   const [time, setTime] = useState<string>(nowLocalTime());
   const [logType, setLogType] = useState<LogType>("pain");
   const [severity, setSeverity] = useState<string>("");

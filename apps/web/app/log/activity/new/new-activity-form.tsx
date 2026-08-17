@@ -4,14 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
-function todayISO(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function nowLocalTime(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -21,10 +13,10 @@ function combineDateTime(date: string, time: string): string {
   return new Date(`${date}T${time}`).toISOString();
 }
 
-export function NewActivityForm() {
+export function NewActivityForm({ initialDate }: { initialDate: string }) {
   const router = useRouter();
 
-  const [date, setDate] = useState<string>(todayISO());
+  const [date, setDate] = useState<string>(initialDate);
   const [time, setTime] = useState<string>(nowLocalTime());
   const [activityType, setActivityType] = useState<string>("");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
