@@ -496,7 +496,7 @@ export function WorkoutLog({ initialWorkout }: { initialWorkout: Workout }) {
   async function deleteWorkout() {
     const res = await apiFetch(`/workouts/${workout.id}`, { method: "DELETE" });
     if (!res.ok) return;
-    router.push("/workouts");
+    router.push("/log");
   }
 
   async function patchTime(field: "started_at" | "finished_at", timeValue: string | null) {
@@ -527,9 +527,9 @@ export function WorkoutLog({ initialWorkout }: { initialWorkout: Workout }) {
       {/* Header */}
       <div className="flex items-center gap-2">
         <button
-          onClick={() => router.push("/workouts")}
+          onClick={() => router.push("/log")}
           className="text-muted-foreground hover:text-foreground mr-1"
-          aria-label="Back to workouts"
+          aria-label="Back to log"
         >←</button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{workout.plan_day_label}</h1>

@@ -1,3 +1,5 @@
+import type { WorkoutSummary } from "@/lib/workouts";
+
 export interface FootballSession {
   id: number;
   date: string;
@@ -53,4 +55,5 @@ export type EventItem =
   | { kind: "football"; data: FootballSession }
   | { kind: "activity"; data: ActivitySession }
   | { kind: "wellbeing"; data: WellbeingLog }
-  | { kind: "meal"; data: MealLog };
+  | { kind: "meal"; data: MealLog }
+  | { kind: "workout"; data: WorkoutSummary };

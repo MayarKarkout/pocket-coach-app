@@ -21,18 +21,18 @@ function formatDate(iso: string): string {
 export function NewWorkoutForm({
   plans,
   pastWorkouts,
+  initialDate,
 }: {
   plans: Plan[];
   pastWorkouts: WorkoutSummary[];
+  initialDate: string;
 }) {
   const router = useRouter();
-  const d = new Date();
-  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   const activePlan = plans.find((p) => p.is_active) ?? plans[0] ?? null;
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(activePlan?.id ?? null);
   const [selectedDayId, setSelectedDayId] = useState<number | null>(null);
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(initialDate);
   const [copyFromWorkoutId, setCopyFromWorkoutId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -159,7 +159,7 @@ export function NewWorkoutForm({
         <Button onClick={create} disabled={!selectedDayId || saving}>
           Start workout
         </Button>
-        <Button variant="outline" onClick={() => router.push("/workouts")}>
+        <Button variant="outline" onClick={() => router.push("/log")}>
           Cancel
         </Button>
       </div>

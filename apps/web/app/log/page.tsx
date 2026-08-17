@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { addDays, formatNavDate, formatTime, todayISO } from "@/lib/dates";
 import type { FootballSession, ActivitySession, WellbeingLog, MealLog, EventItem } from "@/lib/events";
+import type { WorkoutSummary } from "@/lib/workouts";
 
 // --- Card helpers ---
 
@@ -169,9 +170,47 @@ function MealCard({
   );
 }
 
+function formatWorkoutDuration(startedAt: string, finishedAt: string): string {
+  const mins = Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 60000);
+  if (mins < 60) return `${mins}min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+function WorkoutCard({
+  item,
+  onDelete,
+  onClick,
+}: {
+  item: WorkoutSummary;
+  onDelete: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 hover:bg-accent cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+        <span className="text-xs font-medium uppercase tracking-wide text-red-500">Workout</span>
+        <span className="font-medium">{item.plan_day_label}</span>
+        <span className="text-xs text-muted-foreground">
+          {formatDate(item.date)} · {item.set_count} sets
+          {item.started_at && item.finished_at && ` · ${formatWorkoutDuration(item.started_at, item.finished_at)}`}
+        </span>
+        {item.notes && (
+          <span className="text-xs text-muted-foreground truncate">{item.notes}</span>
+        )}
+      </div>
+      <DeleteButton onDelete={onDelete} />
+    </div>
+  );
+}
+
 // --- Types ---
 
-type TypeFilter = "all" | "football" | "activity" | "wellbeing" | "meal";
+type TypeFilter = "all" | "football" | "activity" | "wellbeing" | "meal" | "workout";
 
 const TYPE_FILTERS: { label: string; value: TypeFilter }[] = [
   { label: "All", value: "all" },
@@ -179,6 +218,7 @@ const TYPE_FILTERS: { label: string; value: TypeFilter }[] = [
   { label: "Activity", value: "activity" },
   { label: "Wellbeing", value: "wellbeing" },
   { label: "Meal", value: "meal" },
+  { label: "Workout", value: "workout" },
 ];
 
 // --- Inner page (needs Suspense for useSearchParams) ---
@@ -203,23 +243,26 @@ function LogPageInner() {
   useEffect(() => {
     setLoadingItems(true);
     async function fetchForDate() {
-      const [footballRes, activityRes, wellbeingRes, mealsRes] = await Promise.all([
+      const [footballRes, activityRes, wellbeingRes, mealsRes, workoutsRes] = await Promise.all([
         apiFetch(`/football?date=${selectedDate}`),
         apiFetch(`/activity?date=${selectedDate}`),
         apiFetch(`/wellbeing?date=${selectedDate}`),
         apiFetch(`/meals?date=${selectedDate}`),
+        apiFetch(`/workouts?date=${selectedDate}`),
       ]);
 
-      const [football, activity, wellbeing, meals]: [
+      const [football, activity, wellbeing, meals, workouts]: [
         FootballSession[],
         ActivitySession[],
         WellbeingLog[],
         MealLog[],
+        WorkoutSummary[],
       ] = await Promise.all([
         footballRes.json(),
         activityRes.json(),
         wellbeingRes.json(),
         mealsRes.json(),
+        workoutsRes.json(),
       ]);
 
       const items: EventItem[] = [
@@ -227,6 +270,7 @@ function LogPageInner() {
         ...activity.map((d): EventItem => ({ kind: "activity", data: d })),
         ...wellbeing.map((d): EventItem => ({ kind: "wellbeing", data: d })),
         ...meals.map((d): EventItem => ({ kind: "meal", data: d })),
+        ...workouts.map((d): EventItem => ({ kind: "workout", data: d })),
       ].sort((a, b) => b.data.created_at.localeCompare(a.data.created_at));
 
       setAllItems(items);
@@ -244,7 +288,9 @@ function LogPageInner() {
           ? `/activity/${item.data.id}`
           : item.kind === "wellbeing"
             ? `/wellbeing/${item.data.id}`
-            : `/meals/${item.data.id}`;
+            : item.kind === "meal"
+              ? `/meals/${item.data.id}`
+              : `/workouts/${item.data.id}`;
     apiFetch(path, { method: "DELETE" }).then((res) => {
       if (!res.ok) return;
       setAllItems((prev) =>
@@ -291,6 +337,18 @@ function LogPageInner() {
           className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
         >
           + Meal
+        </Link>
+        <Link
+          href={`/workouts/new?date=${selectedDate}`}
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+        >
+          + Workout
+        </Link>
+        <Link
+          href="/plans"
+          className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent"
+        >
+          Plans →
         </Link>
       </div>
 
@@ -382,12 +440,22 @@ function LogPageInner() {
                 />
               );
             }
+            if (item.kind === "meal") {
+              return (
+                <MealCard
+                  key={`meal-${item.data.id}`}
+                  item={item.data}
+                  onDelete={() => deleteItem(item)}
+                  onClick={() => router.push(`/log/meals/${item.data.id}`)}
+                />
+              );
+            }
             return (
-              <MealCard
-                key={`meal-${item.data.id}`}
+              <WorkoutCard
+                key={`workout-${item.data.id}`}
                 item={item.data}
                 onDelete={() => deleteItem(item)}
-                onClick={() => router.push(`/log/meals/${item.data.id}`)}
+                onClick={() => router.push(`/workouts/${item.data.id}`)}
               />
             );
           })}

@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Dumbbell, ClipboardList, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, ClipboardList, UtensilsCrossed } from "lucide-react";
 
 const NAV = [
   { href: "/today", label: "Today", icon: CalendarDays },
-  { href: "/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/log", label: "Log", icon: ClipboardList },
   { href: "/food", label: "Food", icon: UtensilsCrossed },
 ];

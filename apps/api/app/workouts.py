@@ -228,12 +228,16 @@ def _copy_from_workout(new_workout: Workout, source: Workout, db: DBSession) -> 
 def list_workouts(
     db: DBSession = Depends(get_db),
     _: User = Depends(get_current_user),
+    date: Date | None = Query(None),
 ) -> list[WorkoutSummaryOut]:
-    workouts = list(db.scalars(
+    stmt = (
         select(Workout)
         .options(selectinload(Workout.exercises).selectinload(WorkoutExercise.sets))
         .order_by(Workout.date.desc(), Workout.id.desc())
-    ))
+    )
+    if date is not None:
+        stmt = stmt.where(Workout.date == date)
+    workouts = list(db.scalars(stmt))
     return [_workout_summary(w) for w in workouts]
 
 
