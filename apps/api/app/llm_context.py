@@ -111,15 +111,6 @@ def _fmt_granular(db: DBSession, today: Date, now: datetime) -> list[str]:
             if summary_parts:
                 day_lines.append(f"  → Daily food total: {' · '.join(summary_parts)}")
 
-        if not any(
-            isinstance(line, str) and line.startswith("  Meal")
-            for line in day_lines
-        ):
-            if i == 0:
-                day_lines.append("  No meals logged yet today (data may be incomplete)")
-            else:
-                day_lines.append("  No meals logged — food intake unknown, not zero")
-
         health = db.scalar(
             select(DailyHealthSnapshot).where(DailyHealthSnapshot.date == d)
         )
@@ -140,10 +131,6 @@ def _fmt_granular(db: DBSession, today: Date, now: datetime) -> list[str]:
                 hparts.append(f"stress {health.stress_avg}")
             if hparts:
                 day_lines.append(f"  Health: {', '.join(hparts)}")
-        elif i == 0:
-            day_lines.append("  No health data synced yet today")
-        else:
-            day_lines.append("  No health data — device metrics unknown")
 
         label = d.strftime("%Y-%m-%d (%A)")
         if i == 0:
