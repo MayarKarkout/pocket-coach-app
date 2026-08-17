@@ -25,6 +25,13 @@ function formatDate(iso: string): string {
 
 function DeleteButton({ onDelete }: { onDelete: () => void }) {
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
   return (
     <Button
       size="sm"
@@ -39,7 +46,6 @@ function DeleteButton({ onDelete }: { onDelete: () => void }) {
         e.stopPropagation();
         confirming ? onDelete() : setConfirming(true);
       }}
-      onBlur={() => setConfirming(false)}
     >
       ✕
     </Button>
@@ -269,19 +275,19 @@ function LogPageInner() {
       {/* Action buttons */}
       <div className="flex gap-2 mb-6 flex-wrap">
         <Link
-          href="/log/football/new"
+          href={`/log/football/new?date=${selectedDate}`}
           className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
         >
           + Football
         </Link>
         <Link
-          href="/log/activity/new"
+          href={`/log/activity/new?date=${selectedDate}`}
           className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
         >
           + Activity
         </Link>
         <Link
-          href="/log/wellbeing/new"
+          href={`/log/wellbeing/new?date=${selectedDate}`}
           className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
         >
           + Wellbeing

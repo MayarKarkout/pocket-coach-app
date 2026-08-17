@@ -15,12 +15,10 @@ function combineDateTime(date: string, time: string): string {
   return new Date(`${date}T${time}`).toISOString();
 }
 
-export function NewFootballForm() {
+export function NewFootballForm({ initialDate }: { initialDate: string }) {
   const router = useRouter();
-  const _d = new Date();
-  const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
 
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(nowLocalTime());
   const [sessionType, setSessionType] = useState<SessionType>("training");
   const [durationMinutes, setDurationMinutes] = useState("");
