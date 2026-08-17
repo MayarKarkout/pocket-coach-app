@@ -1,6 +1,12 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
+**M21: Nav Consolidation** — ✅ Done
+
+**M20: Coach Intelligence Rehaul** — ✅ Done
+
+**M19: Bug Fixes** — ✅ Done
+
 **M18: Natural Language Logging** — ✅ Done
 
 **M17: Coach Intelligence (Briefing Quality)** — ✅ Done
@@ -30,6 +36,9 @@
 | M16 | Macro Intelligence (Coach + Insights) | ✅ Done |
 | M17 | Coach Intelligence (Briefing Quality) | ✅ Done |
 | M18 | Natural Language Logging | ✅ Done |
+| M19 | Bug Fixes (delete, date-default) | ✅ Done |
+| M20 | Coach Intelligence Rehaul (tone, missing-data, briefing structure) | ✅ Done |
+| M21 | Nav Consolidation (Workouts → Log merge) | ✅ Done |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -336,6 +345,46 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | Confirm screen | Parsed entries shown as editable cards; user can edit inline, delete individual entries, then save all |
 | Additive only | Does not replace any existing forms; purely augments current input mechanisms |
 
+## What's Done (M19 — Bug Fixes)
+- Delete confirm no longer resets on blur (was dropping a deliberate second tap on mobile); auto-resets 3s after arming instead, so the tap-to-arm/tap-to-confirm pattern is reliable
+- Football/Activity/Wellbeing new-entry forms (`/log/football/new`, `/log/activity/new`, `/log/wellbeing/new`) now read the viewed date from the URL and default to it, matching the existing Meal flow — fixes new entries silently defaulting to today when logging against a past/future day from the Log tab
+
+## What's Done (M20 — Coach Intelligence Rehaul)
+- `llm_context.py`: dropped the "No meals logged" / "No health data" placeholder lines entirely — absent food/health data is no longer surfaced in LLM context at all
+- `briefing.py`: persona reframed from "realistic and demanding" to "data-oriented and realistic"; "Missing data" rules block removed (moot — context no longer emits it); new "Primary signal" note establishes workouts/football/activity as the reliable signal to reason from
+- Daily briefing format gains a `GOING WELL / TO IMPROVE` section (between TRENDS and TODAY'S ADVICE); "TODAY'S ADVICE" prescriptive recommendation kept
+- Verified end-to-end via a live `/briefing/today/regenerate` call against Gemini: new section renders with data-grounded content, tone reads as neutral/data-driven rather than demanding, and no missing-food/health commentary appears
+
+## What's Done (M21 — Nav Consolidation)
+- `GET /workouts` gains an optional `date` query filter (mirrors the existing pattern on `/football`, `/activity`, etc.)
+- Log tab feed now includes workouts: new `WorkoutCard`, `workout` entry in `TYPE_FILTERS`, `+ Workout` action button (`/workouts/new?date=`), delete wired to `DELETE /workouts/{id}`
+- Workouts week-view list route removed (`apps/web/app/workouts/page.tsx`, `workouts-list.tsx`, `loading.tsx`) — fully superseded by Log's day-by-day view; workout detail/edit (`/workouts/[id]`) and creation (`/workouts/new`) routes kept and now linked from Log
+- `/workouts/new` fixed to read the viewed date from the URL (same bug class as M19, fixed here since this task already touched the flow's entry point)
+- Nav bar reduced to Today / Log / Food; Plans relocated to a "Plans →" link on the Log tab
+- Also removed `apps/web/app/log/events-feed.tsx`, discovered to be dead code (an unused, unimported duplicate of `log/page.tsx`'s feed/card components)
+- Verified via `tsc --noEmit` (clean) and live API smoke test: `GET /workouts?date=` filters correctly, `DELETE /workouts/{id}` returns proper 404 on a missing id
+
+## Recent Decisions (M19 Planning — Bug Fixes)
+| Decision | Detail |
+|---|---|
+| Delete confirm bug | Root cause: `events-feed.tsx` `DeleteButton` two-tap confirm pattern breaks on mobile (blur fires before second tap registers, no visual cue on first tap). Keep the tap-to-arm/tap-to-confirm pattern — fix the reliability bug, don't redesign the interaction. |
+| Date-defaults-to-today bug | Root cause: Log tab "new X" forms (confirmed in `new-activity-form.tsx`, likely all of activity/football/wellbeing/meal) initialize date state to `todayISO()` and never read the `date` query param carried in the URL from the viewed day. Fix: read the viewed date from the URL and use it as the default. |
+
+## Recent Decisions (M20 Planning — Coach Intelligence Rehaul)
+| Decision | Detail |
+|---|---|
+| Missing food/health data | Drop entirely — never comment on absent meal logs or health snapshots. Food/health only referenced when present and directly relevant. Supersedes the M17 "missing data = unknown, not zero" framing (that instruction is now moot since absence won't be mentioned at all). Activities (workouts/football/activity sessions) are the primary, always-reliable signal. |
+| Coach tone | Drop "demanding"/"harsh" framing. New framing: data-oriented and realistic. Still ends with a concrete, prescriptive recommendation (keep the "Today's Advice" structure) — just delivered neutrally, not pushily. Applies to both `BRIEFING_SYSTEM` and `CHAT_SYSTEM` in `briefing.py`. |
+| Briefing structure | Add a new section: what's going well / what to improve, alongside the existing 7-day summary, trends, and advice sections. |
+
+## Recent Decisions (M21 Planning — Nav Consolidation)
+| Decision | Detail |
+|---|---|
+| Workouts tab removed | Workouts sessions move fully into the Log tab feed (new "Workout" type + filter pill), addable from Log's add flow. No more separate Workouts tab. |
+| Week-view browsing dropped | Workouts tab's week-view (Mon–Sun, prev/next week arrows) is not carried over. Log's existing day-by-day navigation is sufficient — accepted trade-off, not preserved. |
+| Plans access | Plan management (create/edit plan templates) becomes a link off Log or Today, same pattern as "Meal Library →" on Food and "View Insights →" on Today. |
+| Nav after M21 | Today / Log / Food (3 tabs) + Insights link + Plans link. To be finalized when M21 is scoped into tasks. |
+
 ## Open Decisions
 - **Persistent Cloudflare tunnel** — currently using a temporary trycloudflare.com URL (changes on restart). Needs a domain (~$10/yr) + named tunnel + cloudflared as systemd service for stability. See `docs/cloudflare-tunnel.md`.
 
@@ -390,6 +439,9 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-058 | tasks/TASK-058-health-signal-priority.md | ✅ Done |
 | TASK-059 | tasks/TASK-059-missing-data-semantics.md | ✅ Done |
 | TASK-060 | tasks/TASK-060-natural-language-logging.md | ✅ Done |
+| TASK-061 | tasks/TASK-061-bug-fixes.md | ✅ Done |
+| TASK-062 | tasks/TASK-062-coach-intelligence-rehaul.md | ✅ Done |
+| TASK-063 | tasks/TASK-063-nav-consolidation.md | ✅ Done |
 
 ---
-*Last updated: 2026-07-04 — M18 (Natural Language Logging) shipped. M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-08-17 — M19/M20/M21 shipped (bug fixes, coach intelligence rehaul, nav consolidation). M13 (LLM Tool Use) still deferred.*
