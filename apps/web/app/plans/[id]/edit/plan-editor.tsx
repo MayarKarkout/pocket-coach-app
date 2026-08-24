@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -35,13 +35,19 @@ function DeleteButton({
   children?: React.ReactNode;
 }) {
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
   return (
     <Button
       size={size}
       variant="outline"
       className={confirming ? "bg-red-500 text-white border-red-500 hover:bg-red-600 hover:text-white" : ""}
       onClick={() => confirming ? onDelete() : setConfirming(true)}
-      onBlur={() => setConfirming(false)}
     >
       {children}
     </Button>

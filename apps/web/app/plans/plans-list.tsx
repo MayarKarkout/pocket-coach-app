@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,12 @@ export function PlansList({ initialPlans }: { initialPlans: PlanSummary[] }) {
   const [plans, setPlans] = useState(initialPlans);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (confirmingDeleteId === null) return;
+    const timer = setTimeout(() => setConfirmingDeleteId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [confirmingDeleteId]);
 
   async function activate(id: number) {
     const res = await apiFetch(`/plans/${id}/activate`, { method: "POST" });
@@ -72,7 +78,6 @@ export function PlansList({ initialPlans }: { initialPlans: PlanSummary[] }) {
               size="sm"
               className={confirmingDeleteId === plan.id ? "bg-red-500 text-white border-red-500 hover:bg-red-600 hover:text-white" : ""}
               onClick={() => confirmingDeleteId === plan.id ? deletePlan(plan.id) : setConfirmingDeleteId(plan.id)}
-              onBlur={() => setConfirmingDeleteId(null)}
             >
               Delete
             </Button>

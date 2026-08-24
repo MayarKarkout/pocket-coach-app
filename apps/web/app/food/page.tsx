@@ -15,6 +15,13 @@ function today() {
 
 function MealCard({ meal, onDelete }: { meal: MealLog; onDelete: () => void }) {
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
   return (
     <Link
       href={`/log/meals/${meal.id}`}
@@ -42,7 +49,6 @@ function MealCard({ meal, onDelete }: { meal: MealLog; onDelete: () => void }) {
           e.stopPropagation();
           confirming ? onDelete() : setConfirming(true);
         }}
-        onBlur={() => setConfirming(false)}
       >
         ✕
       </Button>

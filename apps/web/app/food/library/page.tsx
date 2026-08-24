@@ -82,6 +82,13 @@ function MealRow({
   onDelete: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
   return (
     <Link
       href={`/food/library/${item.id}`}
@@ -107,7 +114,6 @@ function MealRow({
           e.stopPropagation();
           confirming ? onDelete() : setConfirming(true);
         }}
-        onBlur={() => setConfirming(false)}
       >
         ✕
       </Button>
