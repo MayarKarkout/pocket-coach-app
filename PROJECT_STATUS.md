@@ -1,6 +1,8 @@
 # PocketCoach — Project Status
 
 ## Current Milestone
+**M22: Activity Snapshot** — ✅ Done
+
 **M21: Nav Consolidation** — ✅ Done
 
 **M20: Coach Intelligence Rehaul** — ✅ Done
@@ -39,6 +41,7 @@
 | M19 | Bug Fixes (delete, date-default) | ✅ Done |
 | M20 | Coach Intelligence Rehaul (tone, missing-data, briefing structure) | ✅ Done |
 | M21 | Nav Consolidation (Workouts → Log merge) | ✅ Done |
+| M22 | Activity Snapshot (shareable period recap) | ✅ Done |
 
 ## What's Done (M1–M3)
 - Monorepo, Docker Compose, PostgreSQL, FastAPI + Alembic, Next.js + shadcn/ui
@@ -385,6 +388,25 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | Plans access | Plan management (create/edit plan templates) becomes a link off Log or Today, same pattern as "Meal Library →" on Food and "View Insights →" on Today. |
 | Nav after M21 | Today / Log / Food (3 tabs) + Insights link + Plans link. To be finalized when M21 is scoped into tasks. |
 
+## What's Done (M22 — Activity Snapshot)
+- New backend module `apps/api/app/snapshot.py`: `GET /snapshot` (totals-only aggregation for workouts/football/activity over an arbitrary date range, plus optional food/health totals) and `POST /snapshot/summary` (recomputes totals server-side, feeds to Gemini via new `SNAPSHOT_SYSTEM` prompt for a short data-grounded recap paragraph, same tone as the daily briefing)
+- New frontend route `/insights/snapshot`: reuses the existing Insights time-window selector; toggles for "Include food/health data" and "Add AI summary" (AI summary requires an explicit "Generate" click, not automatic); `SnapshotCard` component doubles as the on-screen view and the PNG export target
+- "Copy text" and "Export PNG" (via new `html-to-image` dependency) both read from the same card data — a shared `toPlainText()` formatter in `lib/snapshot.ts` keeps the copy output and the visual card in sync
+- "Snapshot →" link added to the Insights page
+- Verified end-to-end through the real web app proxy (not just the raw API): totals correct with/without food+health, real Gemini call producing a grounded, data-only recap; `tsc --noEmit` clean
+
+## Recent Decisions (M22 Planning — Activity Snapshot)
+| Decision | Detail |
+|---|---|
+| Use case | Both personal record-keeping and third-party sharing (coach/trainer) — must stand alone without assuming app context |
+| Entry point | New "Snapshot" link on the Insights page — reuses the existing time-window selector and per-type summary data already built for Insights |
+| Period | Reuse the existing Insights time-window selector as-is: 7d / 4w / monthly / yearly / custom range. No new period concept |
+| Default data scope | Activities only (workouts, football, activity sessions) — consistent with the M20 decision that activities are the reliable signal |
+| Optional data scope | Toggle to include food/health data when present. Never shows "no data" commentary for absent sections, same principle as M20 |
+| Detail level | High-level totals only (session counts, duration, tonnage) — same shape as the existing `DataSummary` model. No "notable highlights" computation (PRs, longest session, etc.) in this milestone |
+| AI commentary | Off by default. Optional toggle adds a short LLM-generated recap paragraph in the same data-oriented/realistic tone as the daily briefing (M20) |
+| Output format | Three mechanisms: (1) styled on-screen card, screenshot-ready as-is, (2) "Copy text" button producing a plain-text version, (3) "Export PNG" button rendering the card to an image file |
+
 ## Open Decisions
 - **Persistent Cloudflare tunnel** — currently using a temporary trycloudflare.com URL (changes on restart). Needs a domain (~$10/yr) + named tunnel + cloudflared as systemd service for stability. See `docs/cloudflare-tunnel.md`.
 
@@ -442,6 +464,8 @@ Push to `main` → GitHub Actions auto-deploys via Tailscale SSH to `goodold@100
 | TASK-061 | tasks/TASK-061-bug-fixes.md | ✅ Done |
 | TASK-062 | tasks/TASK-062-coach-intelligence-rehaul.md | ✅ Done |
 | TASK-063 | tasks/TASK-063-nav-consolidation.md | ✅ Done |
+| TASK-064 | tasks/TASK-064-activity-snapshot-backend.md | ✅ Done |
+| TASK-065 | tasks/TASK-065-activity-snapshot-frontend.md | ✅ Done |
 
 ---
-*Last updated: 2026-08-17 — M19/M20/M21 shipped (bug fixes, coach intelligence rehaul, nav consolidation). M13 (LLM Tool Use) still deferred.*
+*Last updated: 2026-08-26 — M22 shipped (Activity Snapshot); delete-confirm reliability bug fixed in remaining spots (workout sets/exercises, plans, meal library) that M19 missed. M13 (LLM Tool Use) still deferred.*

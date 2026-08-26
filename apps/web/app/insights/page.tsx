@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { TimeWindowSelector } from "./time-window-selector";
 import { GymInsights } from "./gym-insights";
 import { FootballInsights } from "./football-insights";
@@ -17,7 +18,12 @@ export default function InsightsPage() {
 
   return (
     <main className="mx-auto max-w-lg px-4 py-6">
-      <h1 className="text-2xl font-bold mb-4">Insights</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Insights</h1>
+        <Link href="/insights/snapshot" className="text-sm text-primary hover:underline">
+          Snapshot →
+        </Link>
+      </div>
       <TimeWindowSelector onChange={setRange} />
       <div className="flex flex-col gap-8">
         <SummaryInsights range={range} />

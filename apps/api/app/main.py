@@ -17,6 +17,7 @@ from app.today import router as today_router
 from app.briefing import router as briefing_router
 from app.gadgetbridge import router as gadgetbridge_router
 from app.quick_log import router as quick_log_router
+from app.snapshot import router as snapshot_router
 from app.db import SessionLocal, check_db
 from app.seed import seed_admin
 
@@ -54,6 +55,7 @@ app.include_router(today_router)
 app.include_router(briefing_router)
 app.include_router(gadgetbridge_router)
 app.include_router(quick_log_router)
+app.include_router(snapshot_router)
 
 
 @app.get("/health")
